@@ -154,6 +154,7 @@
 			q.mrk    = q._deps.mrk ? new q._deps.mrk ( q ) : null;
 			q.ui     = new q._deps.ui ( q ); q._deps.uifx ( q );
 			q.engine = new q._deps.engine ( q );
+			q.importq = q._deps.importq ? new q._deps.importq ( q ) : null;	/* [新增] 匯入佇列（import-queue.js），沒載入時維持原本單檔流程 */
 			q.state  = new q._deps.state ( 96, q );
 			q.ab     = q._deps.ab ? new q._deps.ab ( q ) : null;
 			q.rec    = new q._deps.rec ( q );
@@ -193,4 +194,3 @@
 	PKAudioList.push (w.PKAudioEditor);
 
 })( window, document );
-

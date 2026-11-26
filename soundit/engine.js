@@ -47,6 +47,76 @@ window.PKSampleURL = function () {
 			return loadableAudioExtensions.test (file.name || '');
 		}
 
+		/* [新增] 開啟方式：已有音訊時問「開啟新檔（取代）／附加／取消」，本機檔、網址、範例檔共用。
+		 * 沒有音訊時不問，直接取代。勾選「記住」只在本次使用期間有效（重新整理就恢復詢問）。 */
+		var open_mode_memo = '';	/* '' = 每次詢問；'replace' / 'append' = 本次沿用 */
+		function askOpenMode ( done ) {
+			if (!q.is_ready) { done ('replace'); return ; }
+			if (open_mode_memo) { done (open_mode_memo); return ; }
+
+			var pick = function ( mode, m ) {
+				var cb = m.el_body && m.el_body.querySelector ('.pk_om_rem');
+				if (cb && cb.checked) open_mode_memo = mode;
+				done (mode);
+				m.Destroy ();
+			};
+
+			new PKSimpleModal ({
+				title : t('engine.open_or_append'),
+				clss  : 'pk_modal_anim pk_fnt10',
+				ondestroy : function () {
+					app.ui.InteractionHandler.on = false;
+					app.ui.KeyHandler.removeCallback ('modalTempErr');
+				},
+				buttons : [
+					{ title: t('engine.open_new'), callback: function ( m ) { pick ('replace', m); } },
+					{ title: t('engine.add_in_existing'), callback: function ( m ) { pick ('append', m); } },
+					{ title: t('loading.cancel'), callback: function ( m ) { m.Destroy (); } }
+				],
+				body : '<p>' + t('engine.append_confirm') + '</p>' +
+					'<p style="opacity:.7;font-size:12px">' + t('engine.replace_note') + '</p>' +
+					'<label style="display:block;margin-top:8px;font-size:12px"><input type="checkbox" class="pk_om_rem"> ' + t('engine.open_remember') + '</label>',
+				/* [修改] 原本 setup 沒接收彈窗參數，按 Esc 時的 q 指到的是引擎（沒有 Destroy），會丟錯誤：改成 m ＝彈窗 */
+				setup : function ( m ) {
+					app.ui.InteractionHandler.checkAndSet ('modal');
+					app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) {
+						m.Destroy ();
+					}, [27]);
+				}
+			}).Show ();
+		}
+
+		/* [新增] 附加：載入會觸發 DidUnloadFile 而清掉標記，所以先記下來，載入完成（ready）後還原，
+		 * 並替新接上去的片段加一個區間標記（名稱＝檔名）。原本若完全沒有標記而且有檔名，也順便標出第一段。 */
+		var append_job = null;
+		function nameFromFile ( f ) { return ((f && f.name) || '').replace (/\.[^.\/\\]+$/, ''); }
+		function nameFromURL ( u ) {
+			try { return decodeURIComponent (String (u).split ('#')[0].split ('?')[0].split ('/').pop () || '').replace (/\.[^.]+$/, ''); }
+			catch (e) { return ''; }
+		}
+		function beginAppend ( name ) {
+			append_job = {
+				markers : app.mrk ? app.mrk.serEd () : [],
+				old_dur : wavesurfer.getDuration () || 0,
+				name    : name || '',
+				base    : q.file_name || ''
+			};
+		}
+		function finishAppend () {
+			var job = append_job;
+			append_job = null;
+			if (!job || !app.mrk) return ;
+
+			var total = wavesurfer.getDuration () || 0, list = job.markers.slice ();
+			if (total > job.old_dur + 0.01) {
+				if (!list.length && job.base && job.old_dur > 0.01)
+					list.push ({ time: 0, end: job.old_dur, name: job.base });
+				if (job.name)
+					list.push ({ time: job.old_dur, end: total, name: job.name });
+			}
+			if (list.length) app.mrk.loadEd (list, false);
+		}
+
 		this.TrimTo = function( val, num ) {
 			var nums = {'0':1, '1':10, '2':100,'3':1000,'4':10000,'5':100000};
 			var dec = nums[num];
@@ -228,10 +298,17 @@ window.PKSampleURL = function () {
 				return ;
 			}
 
-			var func = function () {
+			var func = function ( mode ) {
+				/* [新增] 由 askOpenMode 決定取代或附加；附加時先記下標記 */
+				var add = mode === 'append';
+				wavesurfer.backend._add = add ? 1 : 0;
+				if (add) beginAppend (nameFromFile (file)); else append_job = null;
+
 				app.listenFor ('RequestCancelModal', function() {
 					wavesurfer.cancelBufferLoad ();
 					AudioUtils.DownloadFileCancel ();
+					append_job = null;	/* [新增] */
+					wavesurfer.backend._add = 0;	/* [新增] */
 					if (wavesurfer.arraybuffer) q.is_ready = true;
 
 					app.fireEvent ('RequestResize');
@@ -257,49 +334,100 @@ window.PKSampleURL = function () {
 				wavesurfer.regions && wavesurfer.regions.clear();
 			};
 
-			if ( q.is_ready )
-			{
+			/* [修改] 原本的詢問視窗與兩個分支，改由共用的 askOpenMode 處理 */
+			askOpenMode (func);
 
-				new PKSimpleModal ({
-					title : PKLocale.t('engine.open_or_append'),
-					clss  : 'pk_modal_anim pk_fnt10',
-					ondestroy : function ( q ) {
-						app.ui.InteractionHandler.on = false;
-						app.ui.KeyHandler.removeCallback ('modalTempErr');
-					},
-					buttons:[
-						{
-							title:PKLocale.t('engine.open_new'),
-							callback: function( q ) {
-								wavesurfer.backend._add = 0;
-								func ();
-								q.Destroy ();
-							}
-						},
-						{
-							title:PKLocale.t('engine.add_in_existing'),
-							callback: function( q ) {
-								wavesurfer.backend._add = 1;
-								func ();
-								q.Destroy ();
-							}
-						}
-					],
-					body    : '<p>' + t('engine.append_confirm') + '</p>',
-					setup   : function( q ) {
-						app.ui.InteractionHandler.checkAndSet ('modal');
-						app.ui.KeyHandler.addCallback ('modalTempErr', function ( e ) {
-							q.Destroy ();
-						}, [27]);
-					}
-				}).Show ();
+		};
 
-				return ;
+		/* [新增] 提供匯入佇列（import-queue.js）使用的共用函式 */
+		this.IsLoadableAudioFile = isLoadableAudioFile;
+		this.EstimateDecodedBytes = estimateDecodedBytes;
+		this.LargeFileWarnBytes = LARGE_FILE_WARN_BYTES;
+		this.GetOpenModeMemo = function () { return open_mode_memo; };
+		this.NameFromFile = nameFromFile;
+		this.NameFromURL = nameFromURL;
+
+		/* [新增] 一次載入「已經合併好」的 AudioBuffer（匯入佇列解碼、串接完成後呼叫）。
+		 * 取代與附加都可以用 Ctrl+Z 還原（連同標記、檔名、聲道模式）。
+		 * o.mode     'replace'（預設）或 'append'；附加時 buffer 必須是「現有音訊＋新內容」整段
+		 * o.old_dur  附加前的長度（秒），用來在原本沒有標記時替第一段補標記
+		 * o.markers  新內容的標記 [{ time, end, name }]（秒，已含附加的位移）；沒有就不加
+		 * o.name     取代時的檔名（顯示在分頁標題）
+		 * o.key      取代時的檔案識別碼（local.js 記住播放位置用）
+		 * o.desc     復原清單上的說明
+		 * 成功回傳 true。載入是同步的：ready → DidLoadFile 都在這個呼叫裡完成。 */
+		this.LoadBuffer = function ( buffer, o ) {
+			o = o || {};
+			if (!buffer || !buffer.length) return false;
+
+			var cur = wavesurfer.backend && wavesurfer.backend.buffer;
+			var had = !!(q.is_ready && cur);
+			var add = o.mode === 'append' && had;
+			var old_markers = had && app.mrk ? app.mrk.serEd () : [];
+			var old = null;
+
+			if (had && o.undo !== false) {
+				var rg = wavesurfer.regions && wavesurfer.regions.list[0];
+				old = {
+					data  : cur,
+					meta  : rg ? [ q.TrimTo (rg.start, 3), q.TrimTo (rg.end - rg.start, 3) ] : [ q.TrimTo (wavesurfer.getCurrentTime (), 3) ],
+					name  : q.file_name || '',
+					chans : cur.numberOfChannels
+				};
 			}
 
-			wavesurfer.backend._add = 0;
-			func ();
+			function setName ( name ) {
+				q.file_name = name || '';
+				document.title = q.file_name ? q.file_name + ' - Soundit 聲一' : 'Soundit 聲一';
+			}
 
+			app.fireEvent ('RequestPause');
+			wavesurfer.backend._add = 0;	/* 串接已由呼叫端完成，不要再走 backend 的附加路徑 */
+			append_job = null;
+			if (!add) {
+				setName ( o.name );
+				q.file_key = o.key || null;	/* 要在 ready（DidLoadFile）之前設好 */
+			}
+
+			q.is_ready = false;
+			wavesurfer.empty ();
+			app.fireEvent ('DidUnloadFile');	/* 與 LoadFile 一致：清掉舊標記與各面板狀態 */
+			wavesurfer.regions && wavesurfer.regions.clear ();
+			wavesurfer.loadDecodedBuffer ( buffer );	/* 同步觸發 ready */
+
+			/* 標記：附加時保留原有的；沒有舊標記又有檔名，順便把第一段標出來 */
+			if (app.mrk) {
+				var list = add ? old_markers.slice () : [];
+				if (add && o.markers && !list.length && q.file_name && o.old_dur > 0.01)
+					list.push ({ time: 0, end: o.old_dur, name: q.file_name });
+				if (o.markers) list = list.concat ( o.markers );
+				if (list.length) app.mrk.loadEd ( list, false );
+			}
+
+			if (old) {
+				var new_chans = wavesurfer.backend.buffer.numberOfChannels;
+				var new_name  = q.file_name || '';
+				var sync_chans = function ( n ) {
+					if (n !== 1 && n !== 2) return ;
+					wavesurfer.backend.SetNumberOfChannels ( n );
+					_compute_channels ();
+					wavesurfer.drawBuffer ( true );
+				};
+				/* mk：markers.js 會在推入時自動附上「目前標記」；這裡要的是載入前的標記，所以先指定好 */
+				app.fireEvent ('StateRequestPush', {
+					desc : o.desc || t('desc.open_audio'),
+					meta : old.meta,
+					data : old.data,
+					mk   : old_markers,
+					cb   : function ( is_undo ) {
+						var to = is_undo ? old.chans : new_chans;
+						var from = is_undo ? new_chans : old.chans;
+						if (to !== from) sync_chans ( to );
+						if (!add) setName ( is_undo ? old.name : new_name );
+					}
+				});
+			}
+			return true;
 		};
 
 		this.DownloadFile = function ( name, format, kbps, selection, stereo, bit_depth, dither, target_rate, tag, loud ) {
@@ -458,53 +586,53 @@ window.PKSampleURL = function () {
 			setTimeout ( next, 220 );
 		};
 
+		/* [修改] 網址與範例檔共用：已有音訊時先問取代或附加（原本一律直接取代） */
+		function loadRemote ( src, is_sample ) {
+			askOpenMode (function ( mode ) {
+				var add = mode === 'append', had = q.is_ready;
+				wavesurfer.backend._add = add ? 1 : 0;
+
+				if (add) beginAppend (nameFromURL (src));
+				else {
+					append_job = null;
+					q.file_name = is_sample ? '' : nameFromURL (src);
+					document.title = q.file_name ? q.file_name + ' - Soundit 聲一' : 'Soundit 聲一';
+				}
+
+				app.fireEvent ('WillDownloadFile');
+
+				setTimeout(function () {
+					app.listenFor ('RequestCancelModal', function() {
+						if (wavesurfer.cancelAjax ())
+						{
+							append_job = null;
+							wavesurfer.backend._add = 0;
+							if (wavesurfer.arraybuffer) q.is_ready = true;
+
+							app.fireEvent ('RequestResize');
+							setTimeout(function() { app.fireEvent ('DidDownloadFile'); }, 12);
+							app.stopListeningForName ('RequestCancelModal');
+
+							OneUp (t('mt.msg.canceled'), 1350);
+						}
+					});
+
+					if (is_sample) app.fireEvent ('RequestZoomUI', 0);
+					q.is_ready = false;
+					wavesurfer.load ( src );
+					if (!add && !is_sample) q.file_key = 'url|' + src;
+					/* 與本機檔相同：載入開始就通知卸載（會清掉舊標記）。沒有舊內容時不需要 */
+					if (had) app.fireEvent ('DidUnloadFile');
+				}, 180);
+			});
+		}
+
 		this.LoadSample = function ( file ) {
-			q.file_name = '';
-			document.title = 'Soundit 聲一';
-			app.fireEvent ('WillDownloadFile');
-
-			setTimeout(function () {
-
-				app.listenFor ('RequestCancelModal', function() {
-					if (wavesurfer.cancelAjax ())
-					{
-						if (wavesurfer.arraybuffer) q.is_ready = true;
-
-						app.fireEvent ('RequestResize');
-						setTimeout(function() { app.fireEvent ('DidDownloadFile'); }, 12);
-						app.stopListeningForName ('RequestCancelModal');
-
-						OneUp (t('mt.msg.canceled'), 1380);
-					}
-				});
-
-				app.fireEvent ('RequestZoomUI', 0);
-				q.is_ready = false;
-				wavesurfer.load (file && file !== 'test.mp3' ? file : window.PKSampleURL ());
-			}, 180);
-		}
+			loadRemote (file && file !== 'test.mp3' ? file : window.PKSampleURL (), true);
+		};
 		this.LoadURL = function ( url ) {
-			app.fireEvent ('WillDownloadFile');
-
-			setTimeout(function () {
-				app.listenFor ('RequestCancelModal', function() {
-					if (wavesurfer.cancelAjax())
-					{
-						if (wavesurfer.arraybuffer) q.is_ready = true;
-
-						app.fireEvent ('RequestResize');
-						setTimeout(function() { app.fireEvent ('DidDownloadFile'); }, 12);
-						app.stopListeningForName ('RequestCancelModal');
-
-						OneUp (t('mt.msg.canceled'), 1350);
-					}
-				});
-
-				wavesurfer.load ( url );
-				q.is_ready = false;
-				q.file_key = 'url|' + url;
-			}, 180);
-		}
+			loadRemote ( url, false );
+		};
 
 		/* [修改] 選取區（region）的位置依 drawer.width 計算，但 drawer.drawPeaks 是在下一個 animation frame 才
 		 * 呼叫 setWidth；setHeight → drawBuffer 同步送出的 'redraw' 讓 region 拿到的還是「舊寬度」。
@@ -532,11 +660,17 @@ window.PKSampleURL = function () {
 		wavesurfer.on ('ready', function () {
 			app.fireEvent ('DidReadyFire');
 
+			var was_add = wavesurfer.backend._add;	/* [新增] 先記下是不是附加，下面會歸零 */
 			if (wavesurfer.backend._add) {
 				wavesurfer.backend._add = 0;
 			}
 
-			if (q.is_ready) return ;
+			if (q.is_ready) {
+				/* [修改] 保險：附加卻走到這裡時，一樣還原標記 */
+				if (was_add && append_job) { try { finishAppend (); } catch (e) { console.error (e); } }
+				append_job = null;
+				return ;
+			}
 			q.is_ready = true;
 
 			var dirtymsg = document.getElementsByClassName('pk_ed_empty');
@@ -578,6 +712,9 @@ window.PKSampleURL = function () {
 				app.el.classList.remove ('pk_mono');
 			}
 
+			/* [新增] 附加完成：還原原有標記，並加上新片段的標記 */
+			if (was_add && append_job) { try { finishAppend (); } catch (e) { console.error (e); } }
+			append_job = null;
 		});
 
 		wavesurfer.on ('pause', function() {
@@ -951,14 +1088,19 @@ window.PKSampleURL = function () {
 				input = d.createElement( 'input' );
 				input.setAttribute ('type', 'file');
 				input.setAttribute ('accept', 'audio/*,.amss');
+				input.multiple = true;	/* [新增] 可一次選多個檔案 */
 				input.className = 'pk_inpfile';
 				input.onchange = function () {
+					var picked = Array.prototype.slice.call ( input.files || [] );	/* [新增] 先複製成陣列，下面會移除 input */
 					if (app.multitrack &&
 						app.multitrack.LoadSessionFiles &&
-						app.multitrack.LoadSessionFiles ( input.files ))
+						app.multitrack.LoadSessionFiles ( picked ))
 					{}
-					else if (app.fireEvent ('RequestLoadPickedFiles', input.files) !== true)
-						q.LoadFile ( input );
+					else if (app.fireEvent ('RequestLoadPickedFiles', picked) !== true) {
+						/* [修改] 原本一律 q.LoadFile ( input )（只取第一個）；有匯入佇列就交給它，沒有則維持舊行為 */
+						if (app.importq) app.importq.Open ( picked );
+						else q.LoadFile ({ files: picked });
+					}
 
 					input.parentNode.removeChild( input );
 					input.onchange = null;

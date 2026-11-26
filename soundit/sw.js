@@ -10,7 +10,8 @@
  * [修改] v26 → v27：新增 batch.js（批次處理）。
  * 前一次 v25 → v26：快取優先策略下，不改版本號的話，使用者會一直拿到舊的 JS（含這次的錄音與效果修改） */
 /* [修改] v44 → v45：ui-toolbar-layout.js 預設隱藏選取工具列與電平表，電平表預設放工具列（窄版）。 */
-const CACHE_NAME = 'soundit-v46';
+/* [修改] v46 → v47：新增 import-queue.js（匯入佇列：多檔匯入、排序清單、取代／附加、檔間標記與靜音）；engine.js、drag.js、app.js、語系檔同步更新。 */
+const CACHE_NAME = 'soundit-v47';
 
 const REQUIRED_ASSETS = [
 	'./',
@@ -73,6 +74,7 @@ const REQUIRED_ASSETS = [
 	'./practice-live.js',
 	'./local.js',
 	'./id3.js',
+	'./import-queue.js',
 	'./lz4-loader.js',
 	'./amss-format.js',
 	'./ab.js',

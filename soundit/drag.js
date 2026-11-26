@@ -30,9 +30,11 @@
 				throw( lut[ ( e.target.error.code - 1 ) ] );
 			},
 
+			/* [修改] 先清掉 onloadend 再呼叫 callback：callback 裡若接著讀下一個檔案（見 onDrop 的依序讀取），
+			 * 新設定的 onloadend 才不會被事後的 = null 蓋掉 */
 			reader.onloadend = function( e ) {
-				callback && callback( e.target.result, file.name );
 				reader.onloadend = null;
+				callback && callback( e.target.result, file.name );
 			};
 
 			reader[ method ]( file );
@@ -111,12 +113,36 @@
 						len;
 
 					if(	!files || !files.length )
+					{
+						/* [新增] 拖進來的不是檔案而是網址文字（網址列、網頁上的連結）：交給匯入佇列。不是網址清單就維持原本的「什麼都不做」 */
+						var iqt = window.PKAudioEditor && window.PKAudioEditor.importq;
+						if( iqt && iqt.HandleDropText )
+						{
+							var txt = '';
+							try { txt = e.dataTransfer.getData( 'text/uri-list' ) || e.dataTransfer.getData( 'text/plain' ) || ''; } catch( x ) {}
+							iqt.HandleDropText( txt );
+						}
+						return false;
+					}
+
+					/* [新增] 有匯入佇列就整批交給它（排序清單、取代／附加、標記都在那邊處理）。
+					 * 它回傳 false（多軌模式、或沒有任何音訊檔）時才走下面原本的流程 */
+					var iq = window.PKAudioEditor && window.PKAudioEditor.importq;
+					if( iq && iq.HandleDrop && iq.HandleDrop( files ) )
 						return false;
 
-					len = files.length;
-					while( len-- )
-
-						readFile( files[ len ], callback, method );
+					/* [修改] 原本 while( len-- ) 由最後一個往前讀，順序顛倒；而且共用同一個 FileReader，
+					 * 同時讀多個檔案會互相打架。改成依原順序、一個讀完才讀下一個 */
+					var queue = Array.prototype.slice.call( files ),
+						next = function() {
+							var file = queue.shift();
+							if( !file ) return;
+							readFile( file, function( result, name ) {
+								callback && callback( result, name );
+								next();
+							}, method );
+						};
+					next();
 				}
 			};
 
@@ -130,5 +156,3 @@
 		})( body );
 	};
 })( window );
-
-

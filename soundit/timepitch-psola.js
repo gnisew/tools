@@ -12,6 +12,7 @@
  *   opts.pitch        再額外整體移調（半音），預設 0（與 f0Target 疊加）
  *   opts.tempo        速度倍率，預設 1（0.25~4）；輸出長度 = 輸入 / tempo
  *   opts.onprogress ( 0~1 )
+ *   opts.keepLevel    合成後把音量補回原本的大小（預設 true；false ＝ 不補償）
  *
  * 此模式忽略 opts.tempoCurve / pitchCurve / formant / formantShift / link：
  *   PSOLA 是時域的音高同步重疊相加，聲道（共振峰）形狀本來就不動，改音高天然保留音色。
@@ -23,7 +24,12 @@
  *   2. 合成：輸出標記間隔 = 目標週期（有聲）或 8 ms（無聲）；輸出時間 × tempo = 輸入時間，
  *      取最接近的分析標記，截出 Hann 窗（半寬 ≥ 一個分析週期）重疊相加到輸出標記上。
  *      時間變慢＝重複標記，變快＝略過標記；音高變高＝輸出標記較密，反之較疏。
- *   3. 以窗重疊總和正規化，音量不會隨音高或速度改變。
+ *   3. 以窗重疊總和正規化。
+ *      [v2 補充] 光是正規化，音量其實會隨音高改變：音高升高時每顆脈衝被除以較大的重疊總和，
+ *      實測升高 6 個半音約小 2.5 dB、升高 8 個半音約小 4.4 dB，降低也會小一些。
+ *      所以合成後再做「音量補償」：每 10 ms 比較輸出與對應輸入位置的 RMS，把輸出乘上平滑的增益，
+ *      使響度與原音一致；增益上限會顧及峰值（不超過輸入峰值的 1.25 倍、也不超過滿格），
+ *      輸入近乎無聲處（RMS < 1e-4）不放大，避免把底噪拉起來。
  *   4. 所有聲道共用同一組標記（以單聲道混音偵測），立體聲相位不漂移。
  */
 (function ( root ) {
@@ -150,6 +156,38 @@
 		return ( HANN[hl] = w );
 	}
 
+	/* ---------- [新增] 音量補償：讓輸出每一小段的響度與對應的輸入一致 ---------- */
+	function levelMatch ( x, ys, sr, tempo ) {
+		var n = x.length, m = ys[0].length, y = mono ( ys );
+		var hop = Math.max ( 1, Math.round ( 0.010 * sr ) ), hw = Math.max ( 2, Math.round ( 0.015 * sr ) );
+		var nb = Math.ceil ( m / hop ) + 1, g = new Float32Array ( nb ), i, j, c, t;
+		for (i = 0; i < nb; ++i) {
+			c = i * hop;
+			var a0 = Math.max ( 0, c - hw ), a1 = Math.min ( m - 1, c + hw ), oe = 0, op = 0, oc = 0, v, av;
+			for (j = a0; j <= a1; ++j) { v = y[j]; oe += v * v; av = v < 0 ? -v : v; if (av > op) op = av; ++oc; }
+			var ci = Math.round ( c * tempo ), hi = Math.max ( 2, Math.round ( hw * tempo ) );
+			var b0 = Math.max ( 0, ci - hi ), b1 = Math.min ( n - 1, ci + hi ), ie = 0, ip = 0, ic = 0;
+			for (j = b0; j <= b1; ++j) { v = x[j]; ie += v * v; av = v < 0 ? -v : v; if (av > ip) ip = av; ++ic; }
+			g[i] = 1;
+			if (!oc || !ic) continue;
+			var oR = Math.sqrt ( oe / oc ), iR = Math.sqrt ( ie / ic );
+			if (iR < 1e-4 || oR < 1e-6) continue;
+			var gmax = op > 0 ? Math.max ( 1, Math.min ( 1 / op, 1.25 * ip / op ) ) : 1;
+			g[i] = Math.max ( 0.5, Math.min ( iR / oR, gmax, 3 ) );
+		}
+		for (t = 0; t < 2; ++t) {                              /* 增益曲線平滑 2 次，避免音量忽大忽小 */
+			var h = Float32Array.from ( g );
+			for (i = 0; i < nb; ++i) g[i] = ( h[Math.max ( 0, i - 1 )] + h[i] * 2 + h[Math.min ( nb - 1, i + 1 )] ) / 4;
+		}
+		for (var ch = 0; ch < ys.length; ++ch) {
+			var o = ys[ch];
+			for (i = 0; i < m; ++i) {
+				var p = i / hop, k = Math.floor ( p ), f = p - k;
+				o[i] *= g[k] + ( g[Math.min ( nb - 1, k + 1 )] - g[k] ) * f;
+			}
+		}
+	}
+
 	/* ---------- 主函式 ---------- */
 	function process ( channels, sr, opts ) {
 		opts = opts || {};
@@ -205,12 +243,11 @@
 			var g = 1 / Math.max ( wsum[i], 0.02 );
 			for (c = 0; c < nch; ++c) outs[c][i] *= g;
 		}
+		if (opts.keepLevel !== false) levelMatch ( x, outs, sr, tempo );        /* [新增] 音量補償 */
 		report && report ( 1 );
 		return outs;
 	}
 
-	root.PKPsola = { process: process, findMarks: findMarks, version: 1 };
+	root.PKPsola = { process: process, findMarks: findMarks, version: 2 };
 	if (typeof module !== 'undefined' && module.exports) module.exports = root.PKPsola;
 })( typeof self !== 'undefined' ? self : this );
-
-

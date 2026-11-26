@@ -35,6 +35,9 @@
  *   - 與標記清單同側時，後到的自動靠另一側；兩側都被佔用就維持浮動。
  *   - 快照過期防護：視窗用的是開啟當下選取範圍的快照。偵測到整份音訊被換掉（剪輯、復原、重做、換檔）就停用「套用」並提示；
  *     「重新讀取選取範圍」鈕（停靠時再按一次選單也行）會用目前的選取範圍重新分析。停靠時「套用」後不關閉，改用新範圍重新分析。
+ *   - [新增 v9] 停靠時自動重新讀取：① 重新選取 20 秒內的範圍（穩定約 0.5～1 秒）→ 自動讀取；
+ *     ② 新載入音檔「覆蓋」原檔，且選取範圍（沒選就整份）在 20 秒內 → 自動讀取；
+ *     ③ 新載入音檔「附加在後」→ 不自動讀取，維持「請重新讀取」提示，按「重新讀取」才讀。
  *   - 依面板自己的寬度排版（ResizeObserver，不看視窗寬度）；表格隨高度伸縮；配色全部沿用 main.css 的主題變數（含音高圖），換主題會重畫。
  *   - 保留 data-k 名稱（mapbar、rows、lang、acc、reg、all、range、anchor、cv、orig、prev、apply、status、info、close…）。
  *
@@ -44,6 +47,41 @@
  *     移除底部「這個字改成是不變…」訊息；耗時改成頁尾一小行（不佔列）。
  *   - 「音域基準」→「基準」（選項縮短、選單變窄）；原本的「基準」→「字高」。
  *   - 逐字「依對應」把結果直接寫在選項文字（依對應 → 去聲），不再多佔一欄；各處文字精簡。
+ *
+ * [v6 自然範本]
+ *   - 學習（★）記住字的時候，多存一條 48 點的「細緻曲線」（含該字真實的起伏，單位＝度，與音域無關）。
+ *   - 「⚙ 音高」→「目標曲線」選「自然範本」（預設）：目標聲調有記住的字時，改用那個字的真實曲線當目標，
+ *     沒有就退回標準調值。每個字自動挑音長最接近的範本（前 3 名輪流用，避免每個字一模一樣）；
+ *     「改成」旁的 ◈ 鈕可手動換範本（點一下換下一個，最後回到自動），換了會自動試聽。
+ *   - 舊版記住的字只有 5 點，沒有細緻曲線：在原聲調選對、再按 ✓ 或「記住目前全部」重記一次即可升級。
+ *   - 「自然度」在範本模式下：不再疊加原音的慢變化（範本已有真實的字形起伏），但原音逐幀的抖動照樣全部疊加（範本只存 48 點，存不住細微抖動）。
+ *
+ * [v7 補抓低音高的字]
+ *   - 音高追蹤對低沉、嘎裂、氣聲的字（常見於入聲如 jip3）只能零星抓到幾幀，音節切分又要求連續有聲 ≥ 50 ms，
+ *     結果整個字被丟掉。現在分析時：
+ *       ① 「有能量、但有聲比例很低」的區段（≥ 120 ms）→ 用較寬鬆的有聲門檻（voicing 0.65）再追蹤一次，
+ *          只在這些區段、原本無聲的幀補上音高（補出來少於 4 幀的孤島不要）。沒有這種區段就不多跑第二次。
+ *       ② 切分音節時，把「能量沒有掉下去的短空隙（≤ 80 ms）」視為同一個字的一部分（只影響切分；
+ *          空隙內的幀仍是無聲，轉換時不會被改）。
+ *          補抓區段內，切分用的暫時軌跡把音高壓成中位數（嘎裂段常跳八度，會被「F0 跳動」規則切成碎片），改由能量低谷決定分字。
+ *
+ * [v8 聲調設定改版]
+ *   - 「聲調設定」顯示該語言／腔調「預設的聲調」，每個聲調旁標出調值（如「陰平 24」），括號仍是目前偵測到的字數。
+ *   - [刪除]「依序輪替」鈕與 rotateMap：它只適用「全部都是本調」的自動變調，自動變調留待之後另外設計。
+ *   - [新增]「＋ 增加聲調」：基本聲調以外，使用者可加入該語言還可能用到的聲調（如詔安客語的變調中平 33），
+ *     可從該腔調常見的、通用調值挑，或自訂五度調值（如 35、214）。加入後會出現在聲調設定、逐字表格的「原聲調」與「改成」，
+ *     也會成為偵測候選；每個語言＋腔調各自記住（localStorage：pk_tc_prefs.extra），已加入的聲調可按 ✕ 移除。
+ *     詔安的 33 原本直接放在基本聲調裡，現改為「可加入」的額外聲調（資料在 tone-systems.js 的 accent.extras）。
+ *
+ * [v9 觀念調整：聲調設定／音檔類型]
+ *   - 「聲調」設定鈕一律顯示（原本 AUTO_MAP 關閉時連它一起藏起來，導致看不到額外聲調）。面板分三塊：
+ *       ① 基本聲調（該腔調的本調與調值，附偵測字數）；
+ *       ② 變調時多出來的調型（如詔安客語的中平 33；詔安預設已列入，可 ✕ 移除、可「＋增加調型」）；
+ *       ③ 變調規則：預留區塊，尚未提供（規則不是單純一對一，之後另外處理）。
+ *   - 新增「音檔」類型：自然語流（預設，音檔已是自然變調後的表面調值）／單字本調。
+ *       自然語流：偵測候選＝基本＋額外聲調；「原聲調」＝實際聽到的調值；不套用任何變調規則，「改成」直接指定表面調值。
+ *       單字本調：只比對基本聲調；選單也只列基本聲調（變調規則日後只會用在這類音檔）。
+ *     記住：pk_tc_prefs.kind。
  *
  * 載入：index.html 在 PKAudioEditor.init 之後呼叫 PKToneChange.attach ( editor )
  * 事件：RequestActionToneChange
@@ -58,6 +96,8 @@
 (function ( w, d ) {
 	'use strict';
 
+	/* [新增] 自動變調（依「聲調」設定的對應規則改調）開關：false＝暫不提供，每列「改成」只有「不變」與手動指定 */
+	var AUTO_MAP = false;
 	var MAX_SEC = 20, MIN_VOICED = 5, NAME = 'tonechange', LS_KEY = 'pk_tc_prefs';
 
 	function tf ( key, zh, en ) {
@@ -87,6 +127,89 @@
 		return p[ i ] + ( p[ i + 1 ] - p[ i ] ) * f;
 	}
 	var chaoOf = function ( x ) { return TS.chaoOf ( x ); };
+	/* ------------------------------------------------------------------
+	 * [v7] 補抓低音高的字（純函式）
+	 * ------------------------------------------------------------------ */
+	/* 每幀能量（dB，25 ms 視窗，第 i 幀以 i / rate 秒為中心） */
+	function frameDb ( x, sr, n, rate ) {
+		var len = x.length, pre = new Float64Array ( len + 1 ), i, db = new Float32Array ( n );
+		for (i = 0; i < len; ++i) pre[ i + 1 ] = pre[ i ] + x[ i ] * x[ i ];
+		var half = Math.max ( 1, Math.round ( 0.0125 * sr ) );
+		for (i = 0; i < n; ++i) {
+			var c = Math.round ( i / rate * sr ), a = Math.max ( 0, c - half ), b = Math.min ( len, c + half );
+			db[ i ] = 10 * Math.log10 ( ( b > a ? ( pre[ b ] - pre[ a ] ) / ( b - a ) : 0 ) + 1e-12 );
+		}
+		return db;
+	}
+	/* 有能量、卻幾乎沒抓到音高的區段 → [ [i0, i1) ]。門檻：能量 > 最大值 − 30 dB（容許 2 幀小洞）、連續 ≥ 12 幀、有聲比例 < 0.4 */
+	function rescueRegions ( tr, e ) {
+		var n = tr.n, mx = -1e9, i, out = [];
+		for (i = 0; i < n; ++i) if (e[ i ] > mx) mx = e[ i ];
+		var thr = mx - 30, s = -1, hole = 0;
+		for (i = 0; i <= n; ++i) {
+			var on = i < n && e[ i ] > thr;
+			if (on) { if (s < 0) s = i; hole = 0; continue; }
+			if (s < 0) continue;
+			if (i < n && ++hole <= 2) continue;
+			var re = i - hole, v = 0, k;
+			if (re - s >= 12) { for (k = s; k < re; ++k) if (tr.f0[ k ] > 0) ++v; if (v / ( re - s ) < 0.4) out.push ([ s, re ]); }
+			s = -1; hole = 0;
+		}
+		return out;
+	}
+	/* 把寬鬆追蹤 tr2 的結果，只在 regions 內、tr 原本無聲的幀補進去；補出來少於 4 幀的孤島拿掉。回傳新軌跡（不改動 tr） */
+	function mergeRescue ( tr, tr2, regions ) {
+		var f0 = Float32Array.from ( tr.f0 ), conf = Float32Array.from ( tr.conf || new Float32Array ( tr.n ) ), added = 0, r, k;
+		var from2 = new Uint8Array ( tr.n );
+		for (r = 0; r < regions.length; ++r) {
+			for (k = regions[ r ][ 0 ]; k < regions[ r ][ 1 ] && k < tr2.n; ++k) {
+				if (!( f0[ k ] > 0 ) && tr2.f0[ k ] > 0) { f0[ k ] = tr2.f0[ k ]; conf[ k ] = tr2.conf ? tr2.conf[ k ] : 0.5; from2[ k ] = 1; ++added; }
+			}
+		}
+		var s = -1, i, all2;
+		for (i = 0; i <= tr.n; ++i) {
+			var on = i < tr.n && f0[ i ] > 0;
+			if (on && s < 0) { s = i; continue; }
+			if (on || s < 0) continue;
+			all2 = true; for (k = s; k < i; ++k) if (!from2[ k ]) { all2 = false; break; }
+			if (all2 && i - s < 4) for (k = s; k < i; ++k) { f0[ k ] = 0; conf[ k ] = 0; --added; }
+			s = -1;
+		}
+		return { hop: tr.hop, rate: tr.rate, sr: tr.sr, n: tr.n, f0: f0, conf: conf, fmin: tr.fmin, fmax: tr.fmax, rescued: added };
+	}
+	/* 切分用的軌跡：兩段有聲之間 ≤ 8 幀（80 ms）的空隙，若空隙的平均能量不低於兩側（各取 5 幀）較低者 − 8 dB，就用對數內插補起來。
+	 * 只拿來切分音節；轉換時仍用原軌跡（空隙幀維持無聲）。 */
+	function bridgeGaps ( tr, e, regs ) {
+		var f0 = Float32Array.from ( tr.f0 ), n = tr.n, i = 0, k;
+		function mean ( a, b ) { var s = 0, c = 0; for (var q = Math.max ( 0, a ); q < Math.min ( n, b ); ++q) { s += e[ q ]; ++c; } return c ? s / c : -1e9; }
+		while (i < n) {
+			if (tr.f0[ i ] > 0) { ++i; continue; }
+			var g0 = i; while (i < n && !( tr.f0[ i ] > 0 )) ++i;
+			var g1 = i;
+			if (g0 === 0 || g1 >= n || g1 - g0 > 8) continue;
+			var side = Math.min ( mean ( g0 - 5, g0 ), mean ( g1, g1 + 5 ) );
+			if (mean ( g0, g1 ) < side - 8) continue;
+			var a = Math.log ( tr.f0[ g0 - 1 ] ), b = Math.log ( tr.f0[ g1 ] );
+			for (k = g0; k < g1; ++k) f0[ k ] = Math.exp ( a + ( b - a ) * ( k - g0 + 1 ) / ( g1 - g0 + 1 ) );
+		}
+		/* 補抓區段內的音高（嘎裂段常有跳八度）只拿來判斷「有沒有聲」：切分用的軌跡把它壓成該區段的中位數，
+		 * 讓 PKSpeech.syllables 的「相鄰幀 F0 跳動 > 4 半音就強制切開」不要把一個字切成碎片；是否分字改由能量低谷決定 */
+		(regs || []).forEach ( function ( r ) {
+			var a = [], q;
+			for (q = r[ 0 ]; q < r[ 1 ] && q < n; ++q) if (f0[ q ] > 0) a.push ( f0[ q ] );
+			if (!a.length) return ;
+			a.sort ( function ( x, y ) { return x - y; } );
+			var med = a[ a.length >> 1 ];
+			for (q = r[ 0 ]; q < r[ 1 ] && q < n; ++q) if (f0[ q ] > 0) f0[ q ] = med;
+		});
+		return { hop: tr.hop, rate: tr.rate, sr: tr.sr, n: tr.n, f0: f0, conf: tr.conf, fmin: tr.fmin, fmax: tr.fmax };
+	}
+
+	/* [新增] 範本曲線 c（等距取樣）在 u（0~1）的值 */
+	function tplAt ( c, u ) {
+		var x = Math.max ( 0, Math.min ( 1, u ) ) * ( c.length - 1 ), i = Math.min ( c.length - 2, Math.floor ( x ) ), f = x - i;
+		return c[ i ] + ( c[ i + 1 ] - c[ i ] ) * f;
+	}
 	var sameTone = function ( a, b ) { return TS.sameTone ( a, b ); };
 
 	/* 華語四聲：看形狀判斷（與音域無關）。hz = 該音節有聲幀的 Hz 陣列（依時間排序）。回傳 't1'..'t4' */
@@ -178,7 +301,7 @@
 		return 0.5 * Math.max ( 0, Math.min ( 1, x ) );
 	}
 	/* cands = TS.candidates ()；回傳每個「聲調 id」最像的一筆，依距離由小到大：[{ id, chao, d }] */
-	function scoreTones ( pts, scale, cands, dur ) {
+	function scoreTones ( pts, scale, cands, dur, learn ) {
 		var p = degPts ( pts, scale ), mp = 0, q, lam = scale.reliable ? 1 : 0, best = {};
 		for (q = 0; q < 5; ++q) mp += p[ q ] / 5;
 		cands.forEach ( function ( t ) {
@@ -186,18 +309,35 @@
 			for (q = 0; q < 5; ++q) { tv.push ( chaoAt ( ch, q / 4 ) ); mt += tv[ q ] / 5; }
 			for (q = 0; q < 5; ++q) { e = ( p[ q ] - mp ) - ( tv[ q ] - mt ); sh += e * e / 5; }
 			var d2 = sh + lam * ( mp - mt ) * ( mp - mt ) + durPen ( t.short, dur ), d = Math.sqrt ( d2 );
-			if (!best[ t.id ] || d < best[ t.id ].d) best[ t.id ] = { id: t.id, chao: t.chao, d: d };
+			if (!best[ t.id ] || d < best[ t.id ].d) best[ t.id ] = { id: t.id, chao: t.chao, d: d, n: 0 };
+		});
+		/* [學習] 使用者標過的字（輪廓樣本）：與樣本最近的幾筆距離，依樣本數與規則距離混合 */
+		if (learn) Object.keys ( best ).forEach ( function ( id ) {
+			var arr = learn[ id ];
+			if (!arr || !arr.length) return ;
+			var ds = arr.map ( function ( it ) {
+				var sh2 = 0, e2, lv = 0, dd = 0;
+				for (var j = 0; j < 5; ++j) { e2 = ( p[ j ] - mp ) - it.s[ j ]; sh2 += e2 * e2 / 5; }
+				if (lam && it.m != null) lv = ( mp - 3 - it.m ) * ( mp - 3 - it.m );
+				if (dur > 0 && it.d > 0) dd = 0.3 * Math.min ( 1, Math.abs ( dur - it.d ) / 0.2 );
+				return Math.sqrt ( sh2 + lv + dd * dd );
+			}).sort ( function ( a, b ) { return a - b; } );
+			var kk = Math.min ( 3, ds.length ), dl = 0, w2;
+			for (var j2 = 0; j2 < kk; ++j2) dl += ds[ j2 ] / kk;
+			w2 = ds.length / ( ds.length + 1.5 );
+			best[ id ].d = ( 1 - w2 ) * best[ id ].d + w2 * dl;
+			best[ id ].n = ds.length;
 		});
 		return Object.keys ( best ).map ( function ( k ) { return best[ k ]; } ).sort ( function ( a, b ) { return a.d - b.d; } );
 	}
 	/* 單一音節：回 { id, conf, level, margin, rms, alts }；alts = 距離與最佳差 < 0.3 度的其他聲調 id（最多 3 個） */
-	function detectScored ( hz, scale, cands, dur ) {
+	function detectScored ( hz, scale, cands, dur, learn ) {
 		var pts = contourPts ( hz );
 		if (!pts || !cands.length) return { id: cands.length ? cands[ 0 ].id : 't1', conf: 0, level: 'low', margin: 0, rms: 9, alts: [] };
-		var sc = scoreTones ( pts, scale, cands, dur ), d1 = sc[ 0 ].d, margin = sc.length > 1 ? sc[ 1 ].d - d1 : 1;
+		var sc = scoreTones ( pts, scale, cands, dur, learn ), d1 = sc[ 0 ].d, margin = sc.length > 1 ? sc[ 1 ].d - d1 : 1;
 		var conf = Math.exp ( -d1 * d1 ) * ( 1 - Math.exp ( -margin / 0.3 ) );
 		return {
-			id: sc[ 0 ].id, conf: conf, level: conf >= CONF_HIGH ? 'high' : conf >= CONF_MID ? 'mid' : 'low', margin: margin, rms: d1,
+			id: sc[ 0 ].id, learned: sc[ 0 ].n > 0, conf: conf, level: conf >= CONF_HIGH ? 'high' : conf >= CONF_MID ? 'mid' : 'low', margin: margin, rms: d1,
 			alts: sc.slice ( 1, 4 ).filter ( function ( t ) { return t.d - d1 < 0.3; } ).map ( function ( t ) { return t.id; } )
 		};
 	}
@@ -238,8 +378,111 @@
 		var good = items.filter ( function ( x ) { return x.pts; } );
 		if (o.refine !== false && !o.scale) scale = refineScale ( good, cands, scale );
 		else if (o.refine === true && o.scale) scale = refineScale ( good, cands, scale );
-		return { scale: scale, items: sylHz.map ( function ( hz, i ) { return detectScored ( hz, scale, cands, durs[ i ] ); } ) };
+		return { scale: scale, items: sylHz.map ( function ( hz, i ) { return detectScored ( hz, scale, cands, durs[ i ], o.learn ); } ) };
 	}
+
+
+	/* ------------------------------------------------------------------
+	 * [學習] 人工標註記憶
+	 * 使用者改了（或確認了）某個字的原聲調 → 記下「輪廓形狀（五度、去掉平均）＋高低（音域可信時）＋音長＋聲調」。
+	 * 之後偵測時，與這些樣本最近的幾筆會和標準調值一起評分（樣本越多、越相近，影響越大）。
+	 * 依「語言＋腔調」分開存；同一個字（輪廓相同）重標會取代舊的。存在 localStorage（pk_tc_learn），可匯出／匯入 JSON。
+	 * ------------------------------------------------------------------ */
+	var LEARN_KEY = 'pk_tc_learn', LEARN_MAX = 1200, FINE_N = 48;
+	/* [新增] 細緻曲線：有聲幀的半音（先做 3 點中位數去掉追蹤的尖刺）→ 去平均 → 除以每度的半音數 → 重新取樣成 FINE_N 點 */
+	function fineContour ( hz, step ) {
+		if (!hz || hz.length < 3 || !( step > 0 )) return null;
+		var st = hz.map ( semi ), n = st.length, i, md = [], m = 0, out = [];
+		for (i = 0; i < n; ++i) { var t3 = [ st[ Math.max ( 0, i - 1 ) ], st[ i ], st[ Math.min ( n - 1, i + 1 ) ] ].sort ( function ( a, b ) { return a - b; } ); md.push ( t3[ 1 ] ); m += t3[ 1 ] / n; }
+		for (i = 0; i < FINE_N; ++i) {
+			var x = i / ( FINE_N - 1 ) * ( n - 1 ), j = Math.min ( n - 2, Math.floor ( x ) ), f = x - j, v = md[ j ] + ( md[ j + 1 ] - md[ j ] ) * f;
+			out.push ( Math.round ( ( v - m ) / step * 1000 ) / 1000 );
+		}
+		return out;
+	}
+	var Learn = (function () {
+		var db = null;
+		function r2 ( v ) { return Math.round ( v * 100 ) / 100; }
+		function load () {
+			if (db) return db;
+			try { db = JSON.parse ( w.localStorage.getItem ( LEARN_KEY ) || 'null' ); } catch (e) { db = null; }
+			if (!db || !( db.items instanceof Array )) db = { v: 1, on: true, items: [] };
+			if (db.on === undefined) db.on = true;
+			return db;
+		}
+		function save () { try { w.localStorage.setItem ( LEARN_KEY, JSON.stringify ( db ) ); } catch (e) {} }
+		function valid ( it ) {
+			return it && typeof it.l === 'string' && typeof it.a === 'string' && typeof it.t === 'string' && it.s instanceof Array && it.s.length === 5 &&
+				it.s.every ( function ( v ) { return isFinite ( v ); } ) && ( it.m == null || isFinite ( it.m ) );
+		}
+		function keyOf ( l, a, pts ) { return l + '|' + a + '|' + pts.map ( function ( v ) { return Math.round ( v * 10 ); } ).join ( ',' ); }
+		function put ( it ) {
+			var d = load (), i;
+			for (i = 0; i < d.items.length; ++i) if (d.items[ i ].k === it.k) { d.items.splice ( i, 1 ); break; }
+			d.items.push ( it );
+			if (d.items.length > LEARN_MAX) d.items.splice ( 0, d.items.length - LEARN_MAX );
+		}
+		return {
+			enabled: function () { return load ().on !== false; },
+			setEnabled: function ( on ) { load ().on = !!on; save (); },
+			/* 記下一個字。回傳 true＝有存 */
+			add: function ( lang, acc, tone, pts, scale, dur, hz ) {
+				if (!pts || !scale || !tone || tone === 'custom') return false;
+				var p = degPts ( pts, scale ), mp = 0, q;
+				for (q = 0; q < 5; ++q) mp += p[ q ] / 5;
+				put ({ l: lang, a: acc, t: tone, s: p.map ( function ( v ) { return r2 ( v - mp ); } ), m: scale.reliable ? r2 ( mp - 3 ) : null, d: r2 ( dur || 0 ), c: fineContour ( hz, scale.step ), k: keyOf ( lang, acc, pts ), ts: Date.now () });
+				save ();
+				return true;
+			},
+			/* { 聲調id: [樣本] }（只取這個語言＋腔調） */
+			templates: function ( lang, acc ) {
+				var out = {}, items = load ().items;
+				for (var i = 0; i < items.length; ++i) {
+					var it = items[ i ];
+					if (it.l !== lang || it.a !== acc) continue;
+					( out[ it.t ] = out[ it.t ] || [] ).push ( it );
+				}
+				return out;
+			},
+			/* [新增] 可當範本的樣本（有細緻曲線的），依記錄順序 */
+			tplOf: function ( lang, acc, tone ) {
+				return load ().items.filter ( function ( it ) { return it.l === lang && it.a === acc && it.t === tone && it.c instanceof Array && it.c.length === FINE_N; } );
+			},
+			tplCount: function ( lang, acc ) {
+				return load ().items.filter ( function ( it ) { return it.l === lang && it.a === acc && it.c instanceof Array && it.c.length === FINE_N; } ).length;
+			},
+			count: function ( lang, acc ) { return load ().items.filter ( function ( it ) { return it.l === lang && it.a === acc; } ).length; },
+			total: function () { return load ().items.length; },
+			byTone: function ( lang, acc ) {
+				var o = {}; load ().items.forEach ( function ( it ) { if (it.l === lang && it.a === acc) o[ it.t ] = ( o[ it.t ] || 0 ) + 1; } );
+				return o;
+			},
+			removeTone: function ( lang, acc, tone ) {
+				var d = load (); d.items = d.items.filter ( function ( it ) { return !( it.l === lang && it.a === acc && it.t === tone ); } ); save ();
+			},
+			undoLast: function ( lang, acc ) {
+				var d = load (), i;
+				for (i = d.items.length - 1; i >= 0; --i) if (d.items[ i ].l === lang && d.items[ i ].a === acc) { d.items.splice ( i, 1 ); save (); return true; }
+				return false;
+			},
+			clear: function ( lang, acc ) {
+				var d = load ();
+				d.items = lang ? d.items.filter ( function ( it ) { return !( it.l === lang && it.a === acc ); } ) : [];
+				save ();
+			},
+			exportJSON: function () { var d = load (); return JSON.stringify ({ app: 'soundit-tone-learning', v: 1, items: d.items }, null, 1 ); },
+			/* 匯入（合併；相同的字以匯入的為準）。回傳匯入筆數，格式不對回 -1 */
+			importJSON: function ( text ) {
+				var o; try { o = JSON.parse ( text ); } catch (e) { return -1; }
+				var arr = o && ( o.items || ( o instanceof Array ? o : null ) );
+				if (!( arr instanceof Array )) return -1;
+				var n = 0; load ();
+				arr.forEach ( function ( it ) { if (valid ( it ) && typeof it.k === 'string') { put ({ l: it.l, a: it.a, t: it.t, s: it.s.map ( r2 ), m: it.m == null ? null : r2 ( it.m ), d: r2 ( it.d || 0 ), c: it.c instanceof Array && it.c.length === FINE_N && it.c.every ( isFinite ) ? it.c.map ( function ( v ) { return Math.round ( v * 1000 ) / 1000; } ) : null, k: it.k, ts: it.ts || Date.now () }); ++n; } } );
+				save ();
+				return n;
+			}
+		};
+	})();
 
 	/* 依指派建立目標軌跡
 	 *   track  PKF0 軌跡；syls  [{ i0, i1 }]（幀範圍 [i0,i1)）
@@ -251,8 +494,30 @@
 	function buildTarget ( track, syls, plan, opts ) {
 		opts = opts || {};
 		var oct = opts.range > 0 ? opts.range : 1.0, step = oct / 4;
+		var nat = opts.natural == null ? 0.7 : Math.max ( 0, Math.min ( 1, +opts.natural ) );   /* [新增] 自然度 0~1；0 ＝ 舊行為（純數學曲線） */
 		var out = new Float32Array ( track.f0 ), changed = 0;
 		var lo = Math.max ( 40, track.fmin || 60 ), hi = track.fmax || 800;
+
+		/* [新增] 3 點平滑 n 次（兩端取鄰點，不縮邊） */
+		function smooth3 ( a, n ) {
+			var L = a.length, b = new Float32Array ( L ), t, j;
+			for (t = 0; t < n; ++t) {
+				for (j = 0; j < L; ++j) b[ j ] = ( a[ Math.max ( 0, j - 1 ) ] + a[ j ] * 2 + a[ Math.min ( L - 1, j + 1 ) ] ) / 4;
+				a = Float32Array.from ( b );
+			}
+			return a;
+		}
+		/* [新增] 滑動平均（半寬 h 幀），用來把「慢變化」和「微小抖動」分開 */
+		function boxAvg ( a, h ) {
+			var L = a.length, b = new Float32Array ( L ), j, k, s, c;
+			for (j = 0; j < L; ++j) {
+				s = 0; c = 0;
+				for (k = Math.max ( 0, j - h ); k <= Math.min ( L - 1, j + h ); ++k) { s += a[ k ]; ++c; }
+				b[ j ] = s / c;
+			}
+			return b;
+		}
+		function cap ( v, c ) { return v > c ? c : v < -c ? -c : v; }
 
 		for (var s = 0; s < syls.length; ++s) {
 			var pl = plan[ s ];
@@ -260,6 +525,7 @@
 			var tgt = chaoOf ( pl.to );
 			if (!tgt) continue;
 			var src = chaoOf ( pl.from ) || chaoOf ( 't1' );
+			var tc = pl.tpl && pl.tpl.c instanceof Array && pl.tpl.c.length > 1 ? pl.tpl.c : null;   /* [新增] 範本曲線 */
 
 			var idx = [], i, m = 0;
 			for (i = syls[ s ].i0; i < syls[ s ].i1 && i < track.n; ++i) if (track.f0[ i ] > 0) { idx.push ( i ); m += Math.log ( track.f0[ i ] ) / Math.LN2; }
@@ -268,29 +534,40 @@
 
 			var base = opts.anchor === 'center' ? chaoMean ( tgt ) : chaoMean ( src );
 			var a = syls[ s ].i0, b = syls[ s ].i1 - 1, span = Math.max ( 1, b - a );
-			var vals = new Float32Array ( idx.length );
+			var vals = new Float32Array ( idx.length ), sl = new Float32Array ( idx.length ), si = new Float32Array ( idx.length );
 			for (var j = 0; j < idx.length; ++j) {
 				var u = ( idx[ j ] - a ) / span;                           /* 以音節（含無聲）時間正規化 */
-				vals[ j ] = m + ( chaoAt ( tgt, u ) - base ) * step;      /* log2(Hz) */
+				vals[ j ] = m + ( chaoAt ( tgt, u ) - base ) * step;      /* log2(Hz)：理想目標曲線 */
+				/* [新增] 有範本：整體高度仍由調值決定（字高設定照常有效），形狀與起伏改用範本的真實曲線（以有聲幀正規化） */
+				if (tc) vals[ j ] = m + ( chaoMean ( tgt ) - base ) * step + tplAt ( tc, j / ( idx.length - 1 ) ) * step;
+				sl[ j ] = Math.log ( track.f0[ idx[ j ] ] ) / Math.LN2;   /* [新增] 原音實際曲線 */
+				si[ j ] = m + ( chaoAt ( src, u ) - chaoMean ( src ) ) * step;   /* [新增] 原聲調的理想曲線 */
 			}
-			/* 輕度平滑（3 點），避免階梯狀 */
+
+			/* [修改] 平滑：舊版只平滑 1 次（轉折很尖、像機器）；自然度越高，轉折越圓（約 20~30 ms 的反應時間） */
+			vals = smooth3 ( vals, tc ? 1 : 1 + Math.round ( nat * 5 ) );   /* [修改] 範本已有真實起伏，只輕輕平滑一次 */
+
+			if (nat > 0) {
+				/* [新增] 把原音的「自然成分」帶回來：
+				 *  micro ＝ 原音減去它自己的慢變化 ＝ 逐週期抖動、嗓音嘎裂、子音造成的微擾（真人聲音的質感）
+				 *  dev   ＝ 原音的慢變化減去原聲調的理想曲線 ＝ 這位說話者／這個字自己的小起伏、字尾下沉
+				 *  這兩項與原聲調的形狀無關，所以搬到新聲調上不會把舊聲調帶過來。 */
+				var slow = boxAvg ( sl, 3 );
+				for (j = 0; j < idx.length; ++j) {
+					var micro = cap ( sl[ j ] - slow[ j ], 0.035 ) * nat;                 /* 上限約 0.4 半音，防止八度誤判的尖峰 */
+					var dev = cap ( slow[ j ] - si[ j ], 0.06 ) * ( tc ? 0 : 0.5 ) * nat;              /* 上限約 0.7 半音 */
+					vals[ j ] += micro + dev;
+				}
+			}
+
 			for (j = 0; j < idx.length; ++j) {
-				var p0 = vals[ Math.max ( 0, j - 1 ) ], p2 = vals[ Math.min ( idx.length - 1, j + 1 ) ];
-				var v = ( p0 + vals[ j ] * 2 + p2 ) / 4, h = Math.pow ( 2, v );
+				var h = Math.pow ( 2, vals[ j ] );
 				out[ idx[ j ] ] = Math.max ( lo, Math.min ( hi, h ) );
 				++changed;
 			}
 		}
 		return { f0: out, changed: changed };
 	}
-
-	/* 「循環」對應：腔調內每個舒聲本調 → 下一個（最後一個回到第一個）；短調與變調不參與 */
-	function rotateMap ( lang, acc ) {
-		var a = TS.tones ( lang, acc ).filter ( function ( t ) { return t.src !== false && !t.short && !t.variant; } ), m = {};
-		a.forEach ( function ( t, i ) { m[ t.id ] = a[ ( i + 1 ) % a.length ].id; } );
-		return m;
-	}
-
 
 	/* ------------------------------------------------------------------
 	 * [階段 3] 逐字／局部運算（純函式，Node 也能跑）
@@ -432,32 +709,29 @@
 		/* 按鈕 */
 		'.pk_tc button.pk_tc_b{height:28px;padding:0 12px;border:1px solid var(--tc-bd);border-radius:14px;background:var(--tc-bg);color:var(--tc-fg);font:inherit;cursor:pointer;white-space:nowrap}' +
 		'.pk_tc button.pk_tc_b:hover{border-color:var(--tc-bdh);background:var(--tc-bg3)}.pk_tc button.pk_tc_b.pri{background:var(--tc-ac);border-color:var(--tc-ac);color:var(--tc-fgb);min-width:64px}.pk_tc button.pk_tc_b[disabled]{opacity:.45;cursor:default}' +
-		'.pk_tc button.pk_tc_i{height:26px;padding:0 10px;font-size:12px}.pk_tc button.pk_tc_i.w{background:var(--tc-md);border-color:var(--tc-warn);color:var(--tc-warn)}' +
+		'.pk_tc button.pk_tc_i{width:26px;height:26px;padding:0;border-radius:50%;font-size:14px;line-height:1}.pk_tc button.pk_tc_i.w{background:var(--tc-md);border-color:var(--tc-warn);color:var(--tc-warn)}' +
 		'.pk_tc button.pk_tc_p{height:24px;min-width:30px;padding:0 8px;margin-right:3px;border:1px solid var(--tc-bd);border-radius:12px;background:var(--tc-bg);color:var(--tc-fg);font-size:12px;cursor:pointer}.pk_tc button.pk_tc_p:hover{background:var(--tc-acs);border-color:var(--tc-bdh)}' +
 		/* 下拉選單 */
 		'.pk_tc select,.pk_tc input[type=text]{font:inherit;height:28px;padding:0 4px;border:1px solid var(--tc-bd);border-radius:6px;background:var(--tc-bg1);color:var(--tc-fg);max-width:100%;box-sizing:border-box}.pk_tc input[type=text]{width:60px;padding:0 6px}' +
 		'.pk_tc select:focus-visible,.pk_tc input:focus-visible,.pk_tc button:focus-visible{outline:2px solid var(--tc-ac);outline-offset:1px}' +
 		'.pk_tc input[type=range]{accent-color:var(--tc-ac)}' +
-		'.pk_tc select[data-k=lang],.pk_tc select[data-k=acc]{width:80px}.pk_tc select[data-k=reg]{width:104px}.pk_tc select[data-k=all]{width:auto;max-width:78px}.pk_tc select[data-k=refn]{width:84px}.pk_tc select[data-k=reft]{width:100px}.pk_tc select[data-k=anchor]{width:104px}' +
+		'.pk_tc select[data-k=lang],.pk_tc select[data-k=reg]{width:auto;min-width:0}.pk_tc_nw .pk_tc_fl{display:none}.pk_tc select[data-k=all]{width:auto;max-width:78px}.pk_tc select[data-k=refn]{width:56px}.pk_tc select[data-k=reft]{width:68px}.pk_tc select[data-k=anchor]{width:104px}' +
 		'.pk_tc_bar>span[data-k]{display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap}.pk_tc_bar>span[data-k] select,.pk_tc_bar>span[data-k] input{flex:none}' +
 		/* 音高圖（顏色在 JS 內從同一組變數讀） */
 		'.pk_tc_cv{width:100%;height:128px;display:block;background:var(--tc-bg1);border:1px solid var(--tc-bd);border-radius:6px;box-sizing:border-box}.pk_tc_cv.clk{cursor:pointer}' +
 		'.pk_tc_docked .pk_tc_cv{height:clamp(96px,20vh,170px)}' +
 		'.pk_tc_bd>.pk_tc_bar{margin:6px 0 0}' +
-		/* 頁籤 */
-		'.pk_tc_tabs{display:flex;align-items:flex-end;gap:2px;border-bottom:1px solid var(--tc-bd);margin:8px 0 8px}' +
-		'.pk_tc button.pk_tc_tab{height:30px;padding:0 12px;margin-bottom:-1px;border:1px solid transparent;border-bottom:0;border-radius:8px 8px 0 0;background:none;color:var(--tc-fg1);font:inherit;cursor:pointer;white-space:nowrap}' +
-		'.pk_tc button.pk_tc_tab:hover{color:var(--tc-fg)}.pk_tc button.pk_tc_tab[aria-selected=true]{background:var(--tc-bg);color:var(--tc-fg);border-color:var(--tc-bd);font-weight:600;box-shadow:inset 0 2px 0 var(--tc-ac)}' +
-		'.pk_tc_bdg{display:inline-block;min-width:16px;margin-left:5px;padding:0 5px;border-radius:8px;background:var(--tc-acs);color:var(--tc-ac);font-size:11px;line-height:16px;text-align:center}.pk_tc_bdg.z{display:none}' +
-		'.pk_tc_chg{margin-left:auto;align-self:center;padding-bottom:4px;color:var(--tc-ac);font-size:12px;white-space:nowrap}' +
 		'.pk_tc_pn{display:none}.pk_tc_pn.on{display:block}' +
-		'.pk_tc_docked .pk_tc_pn.on{display:flex;flex-direction:column;flex:1 1 auto;min-height:100px}.pk_tc_docked .pk_tc_pn[data-p=map].on{display:block;overflow:auto}' +
+		'.pk_tc_docked .pk_tc_pn.on{display:flex;flex-direction:column;flex:1 1 auto;min-height:100px}' +
 		/* 依原聲調對應（頁籤二） */
-		'.pk_tc_map{display:block;margin:0;padding:6px 8px;background:var(--tc-bg1);border:1px solid var(--tc-bd);border-radius:8px}' +
-		'.pk_tc_mh{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-bottom:6px}.pk_tc_mt{font-weight:600;white-space:nowrap}.pk_tc_mi{flex:1 1 160px;color:var(--tc-fg2);font-size:12px}' +
+		'.pk_tc_map{display:block;margin:0}' +
+		'.pk_tc_mpop{display:none;position:absolute;left:10px;right:10px;z-index:8;max-height:70%;overflow:auto;padding:8px 10px;background:var(--tc-bg);border:1px solid var(--tc-bd);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.28)}' +
+		'.pk_tc_bdg{display:inline-block;min-width:16px;margin-left:5px;padding:0 5px;border-radius:8px;background:var(--tc-acs);color:var(--tc-ac);font-size:11px;line-height:16px;text-align:center}' +
+		'.pk_tc_mh{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-bottom:4px}.pk_tc_mt{font-weight:600;white-space:nowrap}.pk_tc_mi{flex:1 1 160px;color:var(--tc-fg2);font-size:12px}' +
 		'.pk_tc_map button.pk_tc_b{height:24px;padding:0 9px;font-size:12px;border-radius:12px}' +
-		'.pk_tc_mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:5px 10px}.pk_tc_mg label{display:flex;align-items:center;gap:3px;white-space:nowrap;min-width:0}' +
+		'.pk_tc_mg{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:4px 10px}.pk_tc_mg label{display:flex;align-items:center;gap:3px;white-space:nowrap;min-width:0}' +
 		'.pk_tc_mg select{flex:1 1 0;min-width:0;width:auto;height:26px}' +
+		'.pk_tc_sh{display:flex;align-items:center;gap:8px;margin:10px 0 4px;font-size:12px;font-weight:600;color:var(--tc-fg2)}.pk_tc_hint{font-size:12px;color:var(--tc-fg2);line-height:1.5;margin:2px 0 4px}' +
 		'.pk_tc_n{margin-left:2px;font-size:12px;color:var(--tc-ac);font-weight:600}.pk_tc_n.z{color:var(--tc-fg2);font-weight:400}.pk_tc_map label.z{color:var(--tc-fg2)}' +
 		/* 逐字表格（頁籤一）：浮動時最高約 3 列；停靠時填滿剩餘高度 */
 		'.pk_tc_tb{max-height:132px;overflow:auto;border:1px solid var(--tc-bd);border-radius:6px}.pk_tc_docked .pk_tc_tb{flex:1 1 auto;min-height:60px;max-height:none}' +
@@ -467,7 +741,8 @@
 		'.pk_tc_cell{display:flex;align-items:center;gap:4px;flex-wrap:nowrap}.pk_tc_cell select{flex:none}.pk_tc td input[type=text]{width:52px;max-width:none;flex:none;height:26px}' +
 		'' +
 		'.pk_tc button.pk_tc_rst{height:22px;min-width:22px;margin:0;padding:0 6px;border-color:var(--tc-ac);color:var(--tc-ac)}' +
-		'.pk_tc tr.pk_tc_lo td{background:var(--tc-lo)}.pk_tc tr.pk_tc_md td{background:var(--tc-md)}.pk_tc_c_high{color:var(--tc-ok)}.pk_tc_c_mid{color:var(--tc-warn);font-weight:600;cursor:help}.pk_tc_c_low{color:var(--tc-rec);font-weight:700;cursor:help}.pk_tc_c0{color:var(--tc-fg2)}' +
+		'.pk_tc button.pk_tc_tp{height:22px;margin:0 0 0 4px;padding:0 6px;border:0;color:var(--tc-ac);white-space:nowrap}.pk_tc_nw button.pk_tc_tp{padding:0 3px}' +
+		'.pk_tc tr.pk_tc_lo select[data-r=from]{border-bottom:2px solid var(--tc-ac)}.pk_tc tr.pk_tc_md select[data-r=from]{border-bottom:2px solid color-mix(in srgb,var(--tc-ac) 38%,transparent)}.pk_tc_c_high{color:var(--tc-ok)}.pk_tc_c_mid{color:var(--tc-warn);font-weight:600;cursor:help}.pk_tc_c_low{color:var(--tc-rec);font-weight:700;cursor:help}.pk_tc_c0{color:var(--tc-fg2)}' +
 		'.pk_tc tr.pk_tc_ov td.pk_tc_tc{background:var(--tc-acs)}.pk_tc tr.pk_tc_ov select[data-r=to]{border-color:var(--tc-ac)}' +
 		'.pk_tc tr.pk_tc_sel td{box-shadow:inset 0 -2px 0 var(--tc-ac)}' +
 		'.pk_tc tr.pk_tc_ch td:first-child{box-shadow:inset 3px 0 0 var(--tc-rec)}.pk_tc tr.pk_tc_ch.pk_tc_sel td:first-child{box-shadow:inset 3px 0 0 var(--tc-rec),inset 0 -2px 0 var(--tc-ac)}' +
@@ -479,7 +754,7 @@
 		'.pk_tc_nw td input[type=text]{width:40px}.pk_tc_nw .pk_tc_cell{gap:2px}' +
 		'.pk_tc_nw button.pk_tc_p{min-width:0;padding:0 5px;margin-right:2px}.pk_tc_nw button.pk_tc_rst{padding:0 4px;min-width:20px}' +
 		'.pk_tc_nw th select.pk_tc_hs{width:52px;margin-left:2px}' +
-		'.pk_tc_xs .pk_tc_mg{grid-template-columns:1fr}.pk_tc_xs .pk_tc_rl span{display:none}' +
+		'.pk_tc_xs .pk_tc_mg{grid-template-columns:1fr 1fr;gap:4px 6px}.pk_tc_xs .pk_tc_mg label{font-size:12px}.pk_tc_xs .pk_tc_rl span{display:none}' +
 		/* 過期／選取範圍提示 */
 		'.pk_tc_nt2{display:none;margin:0 0 6px;padding:3px 8px;border-radius:6px;font-size:12px}.pk_tc_nt2.on{display:block}.pk_tc_nt2.st{background:var(--tc-lo);color:var(--tc-rec)}.pk_tc_nt2.sl{background:var(--tc-acs);color:var(--tc-fg1)}' +
 		/* 底部固定 */
@@ -502,14 +777,58 @@
 		'.pk_tc_f{display:inline-flex;align-items:center;gap:4px;white-space:nowrap;color:var(--tc-fg1)}' +
 		'.pk_tc_fr{flex:1 1 210px;min-width:0}.pk_tc_fr input[type=range]{flex:1 1 60px;min-width:60px;max-width:220px}.pk_tc_fr [data-k=rangev]{color:var(--tc-fg)}' +
 		/* [新增] 圖上的浮動切分工具、頁尾「音高設定」彈出面板 */
-		'.pk_tc_cw{position:relative}.pk_tc_chip{position:absolute;z-index:5;display:none;gap:2px;padding:3px;background:var(--tc-bg);border:1px solid var(--tc-bdh);border-radius:15px;box-shadow:0 4px 14px rgba(0,0,0,.25)}' +
+		'.pk_tc_cw{position:relative;margin:8px 0 10px}.pk_tc_chip{position:absolute;z-index:5;display:none;gap:2px;padding:3px;background:var(--tc-bg);border:1px solid var(--tc-bdh);border-radius:15px;box-shadow:0 4px 14px rgba(0,0,0,.25)}' +
 		'.pk_tc button.pk_tc_cb{height:24px;padding:0 10px;border:0;border-radius:12px;background:transparent;color:var(--tc-fg);font:inherit;font-size:12px;cursor:pointer;white-space:nowrap}.pk_tc button.pk_tc_cb:hover,.pk_tc button.pk_tc_cb:focus-visible{background:var(--tc-acs)}' +
 		'.pk_tc_ft{position:relative}.pk_tc_advp{position:absolute;z-index:6;left:0;right:0;bottom:calc(100% + 4px);display:none;padding:10px 12px;background:var(--tc-bg);border:1px solid var(--tc-bdh);border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.25)}' +
 		'.pk_tc_ft .pk_tc_advp .pk_tc_bar{margin:0 0 8px}.pk_tc_ft .pk_tc_advp .pk_tc_bar:last-child{margin:0}' +
 		'.pk_tc button.pk_tc_b.on{background:var(--tc-acs);border-color:var(--tc-ac);color:var(--tc-ac)}' +
 		'.pk_tc button.pk_tc_rl{height:26px;padding:0 10px;font-size:12px}.pk_tc button.pk_tc_rl.hot{background:var(--tc-ac);border-color:var(--tc-ac);color:var(--tc-fgb)}' +
 		'.pk_tc th select.pk_tc_hs{display:inline-block;vertical-align:middle;height:20px;margin-left:6px;padding:0 2px;font-size:12px;border-color:transparent;background:transparent;color:var(--tc-fg2);cursor:pointer}' +
-		'.pk_tc th select.pk_tc_hs:hover,.pk_tc th select.pk_tc_hs:focus-visible{border-color:var(--tc-bd);color:var(--tc-fg)}';
+		'.pk_tc th select.pk_tc_hs:hover,.pk_tc th select.pk_tc_hs:focus-visible{border-color:var(--tc-bd);color:var(--tc-fg)}' +
+		/* 樣式分層（一眼分得出能不能點、重不重要）：
+		 * ① 主要＝實心強調色（套用）　② 次要＝灰底膠囊（原音、轉換後、重新讀取、本調設定）
+		 * ③ 輔助＝無底無框（★、音高設定、列上的 ▶ 原／後、ⓘ、✕）　④ 欄位＝方角、淺底、細框（語言、基準）
+		 * 表格裡的選單＝平常無框，滑過才有底；「改成」依狀態分三級：不變（淡）→ 依對應會改（正常）→ 逐字指定（強調色） */
+		'.pk_tc button.pk_tc_b{height:24px;padding:0 11px;font-size:12px;border:0;border-radius:12px;background:var(--tc-bg3);color:var(--tc-fg)}' +
+		'.pk_tc button.pk_tc_b[data-k=lrn],.pk_tc button.pk_tc_b[data-k=adv]{padding:0 8px;background:transparent;color:var(--tc-fg1)}' +
+		'.pk_tc button.pk_tc_b[data-k=lrn]:hover,.pk_tc button.pk_tc_b[data-k=adv]:hover{background:var(--tc-bg3);color:var(--tc-fg)}' +
+		'.pk_tc button.pk_tc_i,.pk_tc button.pk_tc_x{width:26px;height:26px;padding:0;border:0;border-radius:50%;background:transparent;color:var(--tc-fg1);font-size:14px}' +
+		'.pk_tc button.pk_tc_i:hover,.pk_tc button.pk_tc_x:hover{background:var(--tc-bg3);color:var(--tc-fg)}' +
+		'.pk_tc button.pk_tc_i.w{color:var(--tc-warn)}' +
+		'.pk_tc select,.pk_tc input[type=text]{height:24px;font-size:12px;border:1px solid var(--tc-bd);border-radius:6px;background:var(--tc-bg1)}' +
+		'.pk_tc td select,.pk_tc td input[type=text]{height:22px;padding:0 2px;border-color:transparent;background:transparent}' +
+		'.pk_tc td select:hover,.pk_tc td input[type=text]:hover{background:var(--tc-bg3);border-color:transparent}' +
+		'.pk_tc td select[data-r=from]{width:auto;min-width:48px}.pk_tc td select[data-r=to]{width:116px;color:var(--tc-fg2)}' +
+		'.pk_tc tr.pk_tc_ch select[data-r=to]{color:var(--tc-fg);font-weight:500}' +
+		'.pk_tc tr.pk_tc_ov td.pk_tc_tc{background:transparent}.pk_tc tr.pk_tc_ov select[data-r=to]{background:var(--tc-acs);color:var(--tc-ac);border-color:transparent;font-weight:500}' +
+		'.pk_tc_cv{border:0}.pk_tc_tb{border:0}' +
+		'.pk_tc th,.pk_tc td{padding:1px 6px;font-size:12px;vertical-align:middle;border-bottom:1px solid color-mix(in srgb,var(--tc-bd) 40%,transparent)}' +
+		'.pk_tc th{height:24px;color:var(--tc-fg2);font-weight:400}' +
+		'.pk_tc tr.pk_tc_sel td{background:var(--tc-acs);box-shadow:none}.pk_tc tr.pk_tc_ch td:first-child,.pk_tc tr.pk_tc_ch.pk_tc_sel td:first-child{box-shadow:inset 3px 0 0 var(--tc-rec)}' +
+		'.pk_tc button.pk_tc_p{height:20px;min-width:0;margin:0 2px 0 0;padding:0 6px;border:0;border-radius:10px;background:transparent;color:var(--tc-ac);font-size:11px}.pk_tc button.pk_tc_p:hover{background:var(--tc-acs)}' +
+		'.pk_tc button.pk_tc_rst{height:20px;min-width:20px;padding:0 4px;border:0;color:var(--tc-ac)}' +
+		'.pk_tc tr.pk_tc_sel td.pk_tc_tc,.pk_tc tr.pk_tc_ov.pk_tc_sel td.pk_tc_tc{background:var(--tc-acs)}' +
+		'.pk_tc_ft{border-top:0;margin-top:6px;padding-top:2px}.pk_tc_ft .pk_tc_bar{gap:4px}' +
+		'.pk_tc_chip{top:auto;bottom:calc(100% + 4px);right:0;left:auto;z-index:7;padding:3px 4px;gap:4px;align-items:center;background:var(--tc-bg);border:1px solid var(--tc-bd);border-radius:15px;box-shadow:0 4px 14px rgba(0,0,0,.22)}' +
+		'.pk_tc_chl{color:var(--tc-fg2);font-size:11px;margin-right:2px}' +
+		'.pk_tc button.pk_tc_cb{height:22px;padding:0 9px;border-radius:11px;font-size:12px;background:var(--tc-bg3)}.pk_tc button.pk_tc_cb:hover,.pk_tc button.pk_tc_cb:focus-visible{background:var(--tc-acs);color:var(--tc-ac)}' +
+		/* 播放中：實心強調色（按鈕本身也會從 ▶ 變 ■） */
+		'.pk_tc_ic{display:inline-block;width:1em;text-align:center}' +
+		'.pk_tc button.pk_tc_b.pk_tc_pl,.pk_tc button.pk_tc_b.pk_tc_pl:hover{background:var(--tc-ac);color:var(--tc-fgb)}' +
+		'.pk_tc button.pk_tc_p.pk_tc_pl,.pk_tc button.pk_tc_p.pk_tc_pl:hover{background:var(--tc-ac);color:var(--tc-fgb)}' +
+		'.pk_tc_map select{height:24px}' +
+		/* [新增 v8] 聲調設定：調值、增加聲調面板、額外聲調的移除鈕 */
+		'.pk_tc_mg{grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:6px 14px}' +
+		'.pk_tc_mg label{display:flex;align-items:center;gap:6px}' +
+		'.pk_tc_lh{flex:none;display:flex;align-items:baseline;width:11.5em;white-space:nowrap}.pk_tc_lh.z{color:var(--tc-fg2)}' +
+		'.pk_tc_ln{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}' +
+		'.pk_tc_ch{flex:none;min-width:3.2em;text-align:right;font-size:12px;color:var(--tc-fg2);font-variant-numeric:tabular-nums}' +
+		'.pk_tc_lh .pk_tc_n{flex:none;min-width:2.2em;margin:0;text-align:right}.pk_tc_ar{flex:none;margin-left:6px}' +
+		'.pk_tc_xs .pk_tc_mg{grid-template-columns:1fr}' +
+		'.pk_tc_addp{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin:0 0 8px;padding:6px 8px;border:1px dashed var(--tc-bd);border-radius:8px}' +
+		'.pk_tc_addp select{min-width:0;max-width:100%;height:26px}.pk_tc_addp input[type=text]{width:64px;height:26px}' +
+		'.pk_tc button.pk_tc_xr{flex:none;width:18px;height:18px;margin:0;padding:0;border:0;border-radius:9px;background:transparent;color:var(--tc-fg2);font-size:10px;line-height:18px;cursor:pointer}' +
+		'.pk_tc button.pk_tc_xr:hover,.pk_tc button.pk_tc_xr:focus-visible{background:var(--tc-bg3);color:var(--tc-fg)}';
 
 	var DK_SVG = {
 		l: '<rect x="1" y="1" width="5" height="10" fill="currentColor"/>',
@@ -573,8 +892,22 @@
 		});
 
 		/* 停靠後使用者可能同時剪輯、復原、換檔：音訊一變，快照就過期（只停用「套用」） */
-		[ 'DidUpdateLen', 'StatePush', 'StateDidPop', 'StateClearAll', 'DidLoadFile', 'DidUnloadFile' ].forEach ( function ( ev ) {
+		[ 'DidUpdateLen', 'StatePush', 'StateDidPop', 'StateClearAll', 'DidUnloadFile' ].forEach ( function ( ev ) {
 			app.listenFor ( ev, function () { cur && cur.checkStale (); } );
+		});
+		/* [新增] 分辨「覆蓋載入」與「附加在後」：載入一開始 WillDownloadFile 時，引擎的 backend._add 才有值（1＝附加），
+		 * 到 DidLoadFile 時已被歸零，所以要在這裡先記下來 */
+		var loadAppend = false;
+		app.listenFor ( 'WillDownloadFile', function () {
+			var b = app.engine && app.engine.wavesurfer && app.engine.wavesurfer.backend;
+			loadAppend = !!( b && b._add );
+		});
+		app.listenFor ( 'DidLoadFile', function () {
+			var ap = loadAppend;
+			loadAppend = false;
+			if (!cur) return ;
+			cur.checkStale ();
+			cur.onLoaded ( ap );
 		});
 		[ 'DidCreateRegion', 'DidDestroyRegion' ].forEach ( function ( ev ) {
 			app.listenFor ( ev, function () { cur && cur.checkSel (); } );
@@ -598,12 +931,28 @@
 		setSrc ( src0 );
 
 		var prefs = loadPrefs ();
+		/* [新增 v8] 還原使用者之前加入的額外聲調（每個「語言|腔調」各自記） */
+		var extraPrefs = prefs.extra && typeof prefs.extra === 'object' ? prefs.extra : {};
+		Object.keys ( extraPrefs ).forEach ( function ( k ) {
+			var q = k.split ( '|' );
+			if (q.length === 2 && TS.accent ( q[ 0 ], q[ 1 ] ) && extraPrefs[ k ] instanceof Array) TS.setAdded ( q[ 0 ], q[ 1 ], extraPrefs[ k ] );
+		});
+		/* [v9] 從未調整過額外聲調的腔調：套用預設列入的（詔安 → 變調中平 33）；使用者移除後存成空陣列，不再自動補回 */
+		TS.LANG_ORDER.forEach ( function ( l ) {
+			TS.accents ( l ).forEach ( function ( a ) {
+				var k = l + '|' + a.id, df = TS.defaultExtras ( l, a.id );
+				if (df.length && !Object.prototype.hasOwnProperty.call ( extraPrefs, k )) TS.setAdded ( l, a.id, df.map ( function ( x ) { return x.id; } ) );
+			});
+		});
 		var uiLang = ''; try { uiLang = w.PKLocale.getLang (); } catch (e) {}
+		var srcKind = prefs.kind === 'citation' ? 'citation' : 'natural';      /* [v9] 音檔類型：natural 自然語流（已變調）／citation 單字本調 */
 		var langId = TS.LANGS[ prefs.lang ] ? prefs.lang : TS.defaultLang ( uiLang );
 		var accId = TS.accent ( langId, prefs.acc ) ? prefs.acc : TS.defaultAccent ( langId, uiLang );
 		var range = prefs.range >= 0.5 && prefs.range <= 1.6 ? +prefs.range : 1.0;
 		var anchor = prefs.anchor === 'center' ? 'center' : 'src';
-		var tab = prefs.tab === 'map' ? 'map' : 'rows';
+		var natural = prefs.natural >= 0 && prefs.natural <= 1 ? +prefs.natural : 0.7;   /* [新增] 自然度 */
+		var tsrc = prefs.tsrc === 'std' ? 'std' : 'tpl';         /* [新增] 目標曲線來源：tpl 自然範本／std 標準調值 */
+		var tplPick = {};                                        /* [新增] 手動挑的範本：'i0:i1' → 第幾個 */
 		/* [階段 2] 音域基準：auto＝依選取範圍估計；saved＝沿用上次（一整句得到的音域）；male／female／child＝預設（粗略）；
 		 * ref＝以某個已知聲調的字校準；manual＝手動輸入第 3 度的 Hz */
 		var REG_MODES = [ 'auto', 'saved', 'male', 'female', 'child', 'ref', 'manual' ];
@@ -611,9 +960,9 @@
 		var savedReg = prefs.saved && isFinite ( prefs.saved.c ) && prefs.saved.s > 0 ? { c: +prefs.saved.c, s: +prefs.saved.s } : null;
 		if (regMode === 'saved' && !savedReg) regMode = 'auto';
 		var manHz = prefs.manhz >= 60 && prefs.manhz <= 600 ? +prefs.manhz : 150, refN = 0, refTone = '', scaleNow = null;
-		var track = null, syls = [], sylHz = [], scale = null, plan = [], cache = null, cacheKey = '', busy = null, playSrc = null;
+		var track = null, syls = [], sylHz = [], scale = null, plan = [], cache = null, cacheKey = '', busy = null, playSrc = null, playBtn = null;
 		var selK = -1, autoSyls = null, chipT = -1, chipK = -1, chipTmr = 0, geo = null, sylJob = null, bigJob = null, sylCache = {}, sylCacheN = 0, sylTok = 0, anaTok = 0;
-		var stale = false, selfEdit = false, held = true;       /* held：目前是否握有 InteractionHandler 鎖（attach 已先取得） */
+		var stale = false, selfEdit = false, held = true, autoLoad = false;       /* held：目前是否握有 InteractionHandler 鎖（attach 已先取得） */
 		var applied = 'f', lastTop = -1, lastW = -1, dropEl = null, off = { x: 0, y: 0 }, tmr = 0, ro = null, mo = null, drawRaf = 0;
 
 		var back = d.createElement ( 'div' );
@@ -622,54 +971,49 @@
 			'<div class="pk_tc" role="dialog" aria-modal="true">' +
 				'<div class="pk_tc_hd" data-k="hd"><div class="pk_tc_hl"><div class="pk_tc_ttl">' + esc ( tf ( 'tc.title', '聲調轉換', 'Tone change' ) ) + ' <span data-k="dur" style="font-weight:400;color:var(--tc-fg2);font-size:13px"></span></div>' +
 				'<button type="button" class="pk_tc_b pk_tc_rl" data-k="reload"></button></div>' +
-				'<div class="pk_tc_hr"><span class="pk_tc_dks">' + dkBtn ( 'l' ) + dkBtn ( 'f' ) + dkBtn ( 'r' ) + '</span><button class="pk_tc_b pk_tc_i" data-k="info"></button><button class="pk_tc_x" data-k="close" aria-label="Close">&#10005;</button></div></div>' +
+				'<div class="pk_tc_hr"><button class="pk_tc_b pk_tc_i" data-k="info"></button><span class="pk_tc_dks">' + dkBtn ( 'l' ) + dkBtn ( 'f' ) + dkBtn ( 'r' ) + '</span><button class="pk_tc_x" data-k="close" aria-label="Close">&#10005;</button></div></div>' +
 				'<div class="pk_tc_bd">' +
 				/* 整份共用：語言、腔調、基準（同一列）；音高圖；音高幅度＋字高 */
 				'<div class="pk_tc_nt2" data-k="note" role="status"></div>' +
 				'<div class="pk_tc_bar">' +
-					'<span class="pk_tc_f"><span>' + esc ( tf ( 'tc.lang', '語言', 'Language' ) ) + '</span><select data-k="lang"></select></span>' +
-					'<span class="pk_tc_f" data-k="accwrap"><span>' + esc ( tf ( 'tc.accent', '腔調', 'Variety' ) ) + '</span><select data-k="acc"></select></span>' +
-					'<span class="pk_tc_f" title="' + esc ( tf ( 'tc.reg_tip', '換算五度時的高低標準。只選一個字時，請改選「上次音域」或「某字校準」。', 'The pitch register used to convert Hz to Chao degrees. With a single syllable, use Last register or Calibrate.' ) ) + '"><span>' + esc ( tf ( 'tc.reg', '基準', 'Register' ) ) + '</span><select data-k="reg"></select></span>' +
+					'<span class="pk_tc_f"><span class="pk_tc_fl">' + esc ( tf ( 'tc.lang', '語言', 'Language' ) ) + '</span><select data-k="lang" title="' + esc ( tf ( 'tc.lang', '語言', 'Language' ) ) + '" aria-label="' + esc ( tf ( 'tc.lang', '語言', 'Language' ) ) + '"></select></span>' +
+					'<span class="pk_tc_f" title="' + esc ( tf ( 'tc.kind_tip', '音檔類型。語流變調：音檔本來就是自然變調後的說話，「原聲調」填實際聽到的調值，不套用變調規則。單音本調：音檔是一個字一個字唸的本調。', 'Type of recording. Natural speech: already contains sandhi, so pick the tone you actually hear; no sandhi rules are applied. Citation: isolated words in their base tones.' ) ) + '"><span class="pk_tc_fl">' + esc ( tf ( 'tc.kind', '音檔', 'Audio' ) ) + '</span><select data-k="kind" aria-label="' + esc ( tf ( 'tc.kind', '音檔', 'Audio' ) ) + '"></select></span>' +
+					'<span class="pk_tc_f" title="' + esc ( tf ( 'tc.reg_tip', '換算五度時的高低標準。只選一個字時，請改選「上次音域」或「某字校準」。', 'The pitch register used to convert Hz to Chao degrees. With a single syllable, use Last register or Calibrate.' ) ) + '"><span class="pk_tc_fl">' + esc ( tf ( 'tc.reg', '基準', 'Register' ) ) + '</span><select data-k="reg" aria-label="' + esc ( tf ( 'tc.reg', '基準', 'Register' ) ) + '"></select></span>' +
 					'<span class="pk_tc_f" data-k="refwrap" style="display:none">' + esc ( tf ( 'tc.ref_pre', '第', 'Syllable' ) ) + '<select data-k="refn"></select>' + esc ( tf ( 'tc.ref_mid', '字是', 'is' ) ) + '<select data-k="reft"></select></span>' +
 					'<span class="pk_tc_f" data-k="manwrap" style="display:none">' + esc ( tf ( 'tc.man_pre', '第 3 度 ≈', 'Degree 3 ≈' ) ) + '<input type="text" data-k="manhz" value="150">Hz</span>' +
+					'<button type="button" class="pk_tc_b" data-k="mapbtn" aria-expanded="false" aria-haspopup="true" title="' + esc ( tf ( 'tc.map_tip', '聲調設定：這個腔調的基本聲調、變調時多出來的調型', 'Tone settings: base tones and extra contours of this variety' ) ) + '"></button>' +
 				'</div>' +
 				'<div class="pk_tc_cw"><canvas class="pk_tc_cv" data-k="cv"></canvas>' +
 					/* [新增] 點圖上的字就出現的浮動切分工具（只顯示當下可用的項目） */
 					'<div class="pk_tc_chip" data-k="chip" role="toolbar" aria-label="' + esc ( tf ( 'tc.seg', '切分', 'Segments' ) ) + '">' +
-						'<button type="button" class="pk_tc_cb" data-c="split">&#9986; ' + esc ( tf ( 'tc.seg_split', '在此切開', 'Split here' ) ) + '</button>' +
-						'<button type="button" class="pk_tc_cb" data-c="mprev">&#8853; ' + esc ( tf ( 'tc.seg_mprev', '併前一字', 'Join previous' ) ) + '</button>' +
-						'<button type="button" class="pk_tc_cb" data-c="mnext">' + esc ( tf ( 'tc.seg_mnext', '併後一字', 'Join next' ) ) + ' &#8853;</button>' +
-						'<button type="button" class="pk_tc_cb" data-c="reset">&#8634; ' + esc ( tf ( 'tc.seg_reset', '自動切分', 'Auto' ) ) + '</button></div></div>' +
-				/* 頁籤 */
-				'<div class="pk_tc_tabs" role="tablist">' +
-					'<button type="button" class="pk_tc_tab" role="tab" data-t="rows">' + esc ( tf ( 'tc.tab_det', '偵測到的', 'Detected' ) ) + '</button>' +
-					'<button type="button" class="pk_tc_tab" role="tab" data-t="map">' + esc ( tf ( 'tc.map', '依原聲調對應', 'By original tone' ) ) + '<span class="pk_tc_bdg z" data-k="mapn"></span></button>' +
-					'<span class="pk_tc_chg" data-k="chg"></span></div>' +
-				'<div class="pk_tc_pn" data-p="rows" role="tabpanel">' +
+						'<button type="button" class="pk_tc_cb" data-c="split">&#9986; ' + esc ( tf ( 'tc.seg_split', '切開', 'Split' ) ) + '</button>' +
+						'<button type="button" class="pk_tc_cb" data-c="mprev">&#8853; ' + esc ( tf ( 'tc.seg_mprev', '併前', 'Join prev' ) ) + '</button>' +
+						'<button type="button" class="pk_tc_cb" data-c="mnext">' + esc ( tf ( 'tc.seg_mnext', '併後', 'Join next' ) ) + ' &#8853;</button>' +
+						'<button type="button" class="pk_tc_cb" data-c="reset">&#8634; ' + esc ( tf ( 'tc.seg_reset', '重設', 'Reset' ) ) + '</button></div></div>' +
+				'<div class="pk_tc_pn on" data-p="rows">' +
 					/* 「全部改成」收進「改成」欄的表頭（不常用，不佔版面） */
 					'<div class="pk_tc_tb"><table><thead><tr><th>#</th><th class="pk_tc_tm">' + esc ( tf ( 'tc.time', '時間（秒）', 'Time (s)' ) ) + '</th><th>' + esc ( tf ( 'tc.from', '原聲調', 'Detected' ) ) + '</th><th class="pk_tc_cf">' + esc ( tf ( 'tc.conf', '信心', 'Confidence' ) ) + '</th><th>' + esc ( tf ( 'tc.to', '改成', 'Change to' ) ) + '<select class="pk_tc_hs" data-k="all" title="' + esc ( tf ( 'tc.all_tip', '全部改成同一個（逐字指定，優先於對應規則）', 'Set every row to the same tone (overrides the mapping)' ) ) + '"></select></th><th>' + esc ( tf ( 'tc.listen', '試聽', 'Listen' ) ) + '</th></tr></thead><tbody data-k="rows"></tbody></table></div>' +
 				'</div>' +
-				'<div class="pk_tc_pn" data-p="map" role="tabpanel"><div class="pk_tc_map" data-k="mapbar"></div></div>' +
 				'</div><div class="pk_tc_ft">' +
-				'<div class="pk_tc_bar"><button class="pk_tc_b" data-k="orig">&#9654; ' + esc ( tf ( 'tc.orig', '原音', 'Original' ) ) + '</button>' +
-					'<button class="pk_tc_b" data-k="prev">&#9654; ' + esc ( tf ( 'tc.preview_s', '轉換後', 'Result' ) ) + '</button>' +
+				'<div class="pk_tc_bar"><button class="pk_tc_b" data-k="orig"><span class="pk_tc_ic">&#9654;</span> ' + esc ( tf ( 'tc.orig', '原音', 'Original' ) ) + '</button>' +
+					'<button class="pk_tc_b" data-k="prev"><span class="pk_tc_ic">&#9654;</span> ' + esc ( tf ( 'tc.preview_s', '轉換後', 'Result' ) ) + '</button>' +
+					'<button type="button" class="pk_tc_b" data-k="lrn"></button>' +
 					'<button type="button" class="pk_tc_b" data-k="adv" aria-expanded="false" title="' + esc ( tf ( 'tc.adv_tip', '音高幅度、字高（多數情況維持預設即可）', 'Pitch range and height (the defaults are fine for most cases)' ) ) + '"></button>' +
 					'<span class="pk_tc_st" data-k="status"></span>' +
 					'<button class="pk_tc_b pri" data-k="apply">' + esc ( tf ( 'tc.apply', '套用', 'Apply' ) ) + '</button></div>' +
 					'<div class="pk_tc_advp" data-k="advp">' +
 						'<div class="pk_tc_bar"><span class="pk_tc_f pk_tc_fr"><span>' + esc ( tf ( 'tc.range', '音高幅度', 'Pitch range' ) ) + '</span><input type="range" data-k="range" min="0.5" max="1.6" step="0.05" value="1"><span data-k="rangev">1.00</span><span>' + esc ( tf ( 'tc.oct', '八度', 'oct' ) ) + '</span></span></div>' +
+						'<div class="pk_tc_bar"><span class="pk_tc_f pk_tc_fr" title="' + esc ( tf ( 'tc.nat_tip', '0＝純數學曲線（平、像機器）；越高越保留原音的自然抖動與起伏，聽起來越像真人。', '0 = pure mathematical contour (flat, robotic); higher keeps more of the natural micro-variation of the original voice.' ) ) + '"><span>' + esc ( tf ( 'tc.nat', '自然度', 'Naturalness' ) ) + '</span><input type="range" data-k="natural" min="0" max="1" step="0.05" value="0.7"><span data-k="naturalv">0.70</span></span></div>' +
+						'<div class="pk_tc_bar"><span class="pk_tc_f" title="' + esc ( tf ( 'tc.tsrc_tip', '自然範本：目標聲調有「記住」的字時，用那個字的真實曲線當目標（最像真人）；沒有就用標準調值。', 'Natural template: when the target tone has remembered syllables, use a real recorded contour as the target; otherwise use the standard contour.' ) ) + '"><span>' + esc ( tf ( 'tc.tsrc', '目標曲線', 'Target contour' ) ) + '</span><select data-k="tsrc"><option value="tpl">' + esc ( tf ( 'tc.tsrc_tpl', '自然範本（用記住的字）', 'Natural template' ) ) + '</option><option value="std">' + esc ( tf ( 'tc.tsrc_std', '標準調值', 'Standard' ) ) + '</option></select></span></div>' +
 						'<div class="pk_tc_bar"><span class="pk_tc_f" title="' + esc ( tf ( 'tc.anchor_tip', '依原聲調：字的高低跟著原聲調走。保持原高：只改曲線形狀，字的整體高度不變。', 'By original tone: the syllable height follows the source tone. Keep height: only the contour shape changes.' ) ) + '"><span>' + esc ( tf ( 'tc.anchor', '字高', 'Height' ) ) + '</span><select data-k="anchor">' +
 							'<option value="src">' + esc ( tf ( 'tc.anchor_src', '依原聲調', 'By original tone' ) ) + '</option>' +
 							'<option value="center">' + esc ( tf ( 'tc.anchor_center', '保持原高', 'Keep height' ) ) + '</option></select></span>' +
 							'<button type="button" class="pk_tc_b" data-k="advrst">' + esc ( tf ( 'tc.adv_reset', '還原預設', 'Reset' ) ) + '</button></div></div>' +
 				'</div>' +
+				'<div class="pk_tc_mpop" data-k="mappop"><div class="pk_tc_map" data-k="mapbar"></div></div>' +
 				'<div class="pk_tc_pop" data-k="pop"><div class="pk_tc_pi"><div class="pk_tc_ph"><span>' + esc ( tf ( 'tc.help', '說明', 'Help' ) ) + '</span><button class="pk_tc_x" data-k="popx" aria-label="Close">&#10005;</button></div>' +
-					'<div class="pk_tc_pb"><div class="pk_tc_regw" data-k="regw"></div><div class="pk_tc_warn" data-k="warn"></div><div class="pk_tc_nfo" data-k="reginfo"></div><div class="pk_tc_note" data-k="sandhi"></div>' +
-					'<div class="pk_tc_note">' + esc ( tf ( 'tc.note', '灰線＝原音高，紅線＝轉換後目標。點圖上的字或列上的 ▶ 可逐字試聽（只合成那個字，很快）。原聲調判斷錯了可手動改；「自訂」可輸入五度標記，如 51、214、335。只改音高，音長與音色不變。', 'Grey = original pitch, red = target. Click a syllable on the chart or the ▶ on a row to audition just that syllable (fast). Fix a wrong detected tone by hand; "Custom" takes Chao digits like 51, 214, 335. Only pitch changes; duration and timbre stay.' ) ) + '</div>' +
-					'<div class="pk_tc_note">' + esc ( tf ( 'tc.rules', '兩層規則：「依原聲調對應」是底，表格裡逐字指定的「改成」優先。「改成」選「依對應」＝照對應規則；其他選項＝只改這個字（該列會標色，按 ↺ 還原）。', 'Two layers: the mapping is the base; a per-row “Change to” wins. “By mapping” follows the rule; any other choice overrides that row only (highlighted; ↺ restores).' ) ) + '</div>' +
-					'<div class="pk_tc_note">' + esc ( tf ( 'tc.seg_help', '切分不對時：點圖上的字（會先試聽），旁邊浮出的小工具可「在此切開」（自動貼齊附近最安靜處，圖上虛線是實際切點）、「併前一字」「併後一字」，有手動修改時還有「自動切分」可還原。右鍵只顯示工具、不試聽；Esc 或點別處收起。切開或合併後，被動到的字會重新判斷聲調，沒動到的字保留原設定；重新讀取選取範圍會回到自動切分。', 'If the segmentation is wrong: click a syllable on the chart (it plays) and a small floating toolbar offers Split here (snaps to the quietest point nearby; the dashed line is the actual cut), Join previous / next, and Auto to undo manual edits. Right-click shows the toolbar without playing; Esc or a click elsewhere hides it. Only changed syllables are re-detected; reloading returns to automatic segmentation.' ) ) + '</div>' +
-					'<div class="pk_tc_note">' + esc ( tf ( 'tc.dock_help', '右上角三個按鈕可停靠到左側／右側或浮動；也可把標題列拖到畫面左右邊緣。停靠後可拖邊線調寬度（雙擊還原），主畫面的波形與播放照常可用；若音訊被剪輯或復原，「套用」會停用，按標題旁的 ↻ 重新讀取即可。沒選取範圍也能開啟；停靠時在主畫面選好範圍，會自動讀取。', 'Use the three buttons at the top right to dock left / right or float; you can also drag the title bar to a screen edge. While docked, drag the edge to resize (double-click resets) and the main view keeps working. If the audio is edited or undone, Apply is disabled until you press Reload selection.' ) ) + '</div>' +
-					'<div class="pk_tc_note">' + esc ( tf ( 'tc.keys', '快速鍵：空白鍵＝試聽轉換後，Ctrl（或 ⌘）＋Enter＝套用，Esc＝關閉（停靠時，焦點要在面板內才有效）。圖上的字編號對應表格的 #，紅底＝這個字會被改。音高幅度可連按兩下回到 1.00。', 'Shortcuts: Space = preview result, Ctrl/⌘+Enter = apply, Esc = close (when docked, only while focus is inside the panel). Numbers on the chart match the # column; red = this syllable will change. Double-click the Pitch range slider to reset to 1.00.' ) ) + '</div></div></div></div>' +
+					'<div class="pk_tc_pb"><div class="pk_tc_nfo" data-k="lrnbox"></div><div class="pk_tc_regw" data-k="regw"></div><div class="pk_tc_warn" data-k="warn"></div><div class="pk_tc_nfo" data-k="reginfo"></div><div class="pk_tc_note" data-k="sandhi"></div>' +
+					'<div class="pk_tc_note">' + esc ( tf ( 'tc.keys', '空白鍵＝試聽　Ctrl/⌘＋Enter＝套用　Esc＝關閉', 'Space = preview · Ctrl/⌘+Enter = apply · Esc = close' ) ) + '</div></div></div></div>' +
 				'<div class="pk_tc_sp" data-k="sp" title="' + esc ( tf ( 'tc.dk_sp', '拖曳調整寬度，雙擊還原', 'Drag to resize, double-click to reset' ) ) + '"></div>' +
 			'</div>';
 		d.body.appendChild ( back );
@@ -679,84 +1023,220 @@
 		var cv = el.cv, ctx = cv.getContext ( '2d' );
 		showDur ();
 
-		/* ---------- 頁籤 ---------- */
-		function setTab ( t, focus ) {
-			tab = t === 'map' ? 'map' : 'rows';
-			[].forEach.call ( back.querySelectorAll ( '[data-t]' ), function ( b ) {
-				var on = b.getAttribute ( 'data-t' ) === tab;
-				b.setAttribute ( 'aria-selected', on ? 'true' : 'false' ); b.tabIndex = on ? 0 : -1;
-				if (on && focus) b.focus ();
-			});
-			[].forEach.call ( back.querySelectorAll ( '[data-p]' ), function ( p ) { p.classList.toggle ( 'on', p.getAttribute ( 'data-p' ) === tab ); } );
+		/* 語言／基準選單寬度＝目前選中文字的寬度（不留多餘空白） */
+		var mctx = d.createElement ( 'canvas' ).getContext ( '2d' );
+		function fitSel ( s ) {
+			if (!s || !s.options || !s.options.length || !mctx) return ;
+			var o = s.options[ s.selectedIndex >= 0 ? s.selectedIndex : 0 ], cs = w.getComputedStyle ( s );
+			mctx.font = cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+			s.style.width = ( Math.ceil ( mctx.measureText ( o.textContent ).width ) + 28 ) + 'px';
 		}
-		setTab ( tab );
-		back.querySelector ( '.pk_tc_tabs' ).addEventListener ( 'click', function ( e ) {
-			var b = e.target && e.target.closest && e.target.closest ( '[data-t]' );
-			if (b) { setTab ( b.getAttribute ( 'data-t' ) ); remember (); }
-		});
 
 		/* ---------- 選項 ---------- */
+		/* [v9] 目前音檔類型下可用的聲調：自然語流＝基本＋額外；單字本調＝只有基本 */
+		function curTones () { return srcKind === 'citation' ? TS.baseTones ( langId, accId ) : TS.tones ( langId, accId ); }
 		function toneLabel ( t ) { return tf ( 'tc.' + t.id, t.zh, t.en ); }
 		function langName ( id ) { return tf ( 'tc.lang_' + id, TS.LANGS[ id ].zh, TS.LANGS[ id ].en ); }
 		function accName ( a ) { return tf ( 'tc.acc_' + a.id, a.zh, a.en ); }
-		function optList ( tones ) { return tones.map ( function ( t ) {
-			var full = toneLabel ( t ) + ( t.chao && t.zh.indexOf ( t.chao ) < 0 ? ' (' + t.chao + ( t.short ? ' ' + tf ( 'tc.short', '短', 'short' ) : '' ) + ')' : '' );
+		/* [修改] chaoOnly：只顯示調值（例「21」「3 短」），不顯示聲調名稱；供「原聲調」欄使用（那裡多半是變調，名稱會混淆） */
+		function optList ( tones, chaoOnly ) { return tones.map ( function ( t ) {
+			if (chaoOnly) {
+				var cv = t.chao + ( t.short && String ( t.chao ).length > 1 ? ' ' + tf ( 'tc.short', '短', 'short' ) : '' );
+				return '<option value="' + t.id + '" data-f="' + esc ( cv ) + '" data-s="' + esc ( cv ) + '">' + esc ( cv ) + '</option>';
+			}
+			var full = toneLabel ( t ) + ( t.chao && t.zh.indexOf ( t.chao ) < 0 ? ' (' + t.chao + ( t.short && String ( t.chao ).length > 1 ? ' ' + tf ( 'tc.short', '短', 'short' ) : '' ) + ')' : '' );
 			/* [修改] data-f＝完整文字、data-s＝只有調值數字（窄版用，見 applyNar） */
 			return '<option value="' + t.id + '" data-f="' + esc ( full ) + '" data-s="' + esc ( t.chao || full ) + '">' + esc ( full ) + '</option>';
 		} ).join ( '' ); }
 		/* withKeep：加「不變」；withGeneric：附上「通用調值」；withCustom：加「自訂」 */
-		function toneOpts ( withKeep, withGeneric, withCustom ) {
+		function toneOpts ( withKeep, withGeneric, withCustom, chaoOnly ) {
 			var h = withKeep ? '<option value="">' + esc ( tf ( 'tc.keep', '不變', 'Keep' ) ) + '</option>' : '';
-			h += optList ( TS.tones ( langId, accId ) );
-			if (withGeneric) h += '<optgroup label="' + esc ( tf ( 'tc.generic', '通用調值', 'Generic contours' ) ) + '">' + optList ( TS.GENERIC ) + '</optgroup>';
+			h += optList ( curTones (), chaoOnly );
+			if (withGeneric) h += '<optgroup label="' + esc ( tf ( 'tc.generic', '通用調值', 'Generic contours' ) ) + '">' + optList ( TS.GENERIC.filter ( function ( g ) { return !addedHas ( g.id ); } ) ) + '</optgroup>';
 			if (withCustom) h += '<option value="custom">' + esc ( tf ( 'tc.custom', '自訂…', 'Custom…' ) ) + '</option>';
 			return h;
 		}
-		el.lang.innerHTML = TS.LANG_ORDER.map ( function ( id ) { return '<option value="' + id + '">' + esc ( langName ( id ) ) + '</option>'; } ).join ( '' );
+		/* 語言＋腔調合成一個平面選單（客語・四縣、客語・海陸…）；只有一個腔調的語言（華語）只顯示語言名 */
+		el.lang.innerHTML = TS.LANG_ORDER.map ( function ( id ) {
+			var list = TS.accents ( id );
+			return list.map ( function ( a ) {
+				return '<option value="' + id + '|' + a.id + '">' + esc ( list.length > 1 ? accName ( a ) : langName ( id ) ) + '</option>';
+			} ).join ( '' );
+		} ).join ( '' );
 		function fillAccents () {
-			var list = TS.accents ( langId );
-			el.acc.innerHTML = list.map ( function ( a ) { return '<option value="' + a.id + '">' + esc ( accName ( a ) ) + '</option>'; } ).join ( '' );
-			el.acc.value = accId;
-			el.accwrap.style.display = list.length > 1 ? '' : 'none';
-			el.sandhi.textContent = TS.note ( langId, accId, uiLang === 'en' );
+			el.lang.value = langId + '|' + accId;
+			fitSel ( el.lang );
+			fillKind ();
 		}
-		el.lang.value = langId; fillAccents ();
+		/* [v9] 音檔類型選單與說明文字（說明視窗裡那行） */
+		function fillKind () {
+			el.kind.innerHTML = '<option value="natural" data-f="' + esc ( tf ( 'tc.kind_nat', '語流變調', 'Natural speech (with sandhi)' ) ) + '" data-s="' + esc ( tf ( 'tc.kind_nat_s', '變調', 'Sandhi' ) ) + '">' + esc ( tf ( 'tc.kind_nat', '語流變調', 'Natural speech (with sandhi)' ) ) + '</option>' +
+				'<option value="citation" data-f="' + esc ( tf ( 'tc.kind_cit', '單音本調', 'Citation tones' ) ) + '" data-s="' + esc ( tf ( 'tc.kind_cit_s', '本調', 'Citation' ) ) + '">' + esc ( tf ( 'tc.kind_cit', '單音本調', 'Citation tones' ) ) + '</option>';
+			if (nar) [].forEach.call ( el.kind.options, function ( o ) { o.textContent = o.getAttribute ( 'data-s' ); } );
+			el.kind.value = srcKind;
+			fitSel ( el.kind );
+			el.sandhi.textContent = srcKind === 'citation'
+				? tf ( 'tc.kind_cit_note', '單音本調：只比對基本聲調。變調規則之後才提供，目前不會自動變調。', 'Citation tones: only base tones are matched. Sandhi rules are not available yet, so nothing is changed automatically.' )
+				: tf ( 'tc.kind_nat_note', '語流變調：音檔已是自然變調後的說話，請依實際聽到的調值選「原聲調」，不套用變調規則。', 'Natural speech: the recording already contains sandhi. Pick the tone you actually hear; no sandhi rules are applied.' );
+		}
+		fillAccents ();
 		el.range.value = range; el.rangev.textContent = range.toFixed ( 2 );
+		el.natural.value = natural; el.naturalv.textContent = natural.toFixed ( 2 ); el.tsrc.value = tsrc;
 		el.anchor.value = anchor;
 		syncAdv ();
 
 		function buildAll () {
 			/* 「全部改成」：— ＝不動作；「全部依對應」＝清掉所有逐字指定；其餘＝每一列都指定成該聲調 */
-			el.all.innerHTML = '<option value="-" hidden>' + esc ( tf ( 'tc.all', '全部…', 'All…' ) ) + '</option><option disabled>' + esc ( tf ( 'tc.all_hd', '— 全部改成 —', '— Set all to —' ) ) + '</option><option value="@">' + esc ( tf ( 'tc.all_map', '依對應（清除逐字指定）', 'By mapping (clear row choices)' ) ) + '</option>' + toneOpts ( true, true, true );
+			el.all.innerHTML = '<option value="-" hidden>' + esc ( tf ( 'tc.all', '全部', 'All' ) ) + '</option><option disabled>' + esc ( tf ( 'tc.all_hd', '— 全部改成 —', '— Set all to —' ) ) + '</option><option value="@">' + esc ( AUTO_MAP ? tf ( 'tc.all_map', '依對應（清除逐字指定）', 'By mapping (clear row choices)' ) : tf ( 'tc.keep', '不變', 'Keep' ) ) + '</option>' + toneOpts ( AUTO_MAP, true, true );
 			applyNar ();
-			/* 依原聲調對應（頁籤二） */
+			/* [修改 v8] 聲調設定：該語言預設（基本）聲調＋使用者加入的額外聲調；每個都標出調值與目前偵測到的字數 */
 			var srcTones = TS.tones ( langId, accId ).filter ( function ( t ) { return t.src !== false; } );
-			var h = '<div class="pk_tc_mh">' +
-				'<button type="button" class="pk_tc_b" data-k="rot" title="' + esc ( tf ( 'tc.rotate_tip', '每個聲調改成下一個聲調（最後一個回到第一個）', 'Each tone becomes the next one (last wraps to first)' ) ) + '">' + esc ( tf ( 'tc.rotate', '循環', 'Rotate' ) ) + '</button>' +
-				'<button type="button" class="pk_tc_b" data-k="clr" title="' + esc ( tf ( 'tc.clear_tip', '清除對應規則（表格裡逐字指定的不受影響）', 'Clear the mapping (per-row choices are kept)' ) ) + '">' + esc ( tf ( 'tc.clear', '全部不變', 'Clear' ) ) + '</button></div><div class="pk_tc_mg">';
-			srcTones.forEach ( function ( t ) {
-				h += '<label data-ml="' + t.id + '" title="' + esc ( tf ( 'tc.count_tip', '括號是目前有幾個字被判成這個聲調', 'Number of syllables currently detected as this tone' ) ) + '">' + esc ( toneLabel ( t ).replace ( /[（(].*$/, '' ) ) + '<span class="pk_tc_n z" data-n="' + t.id + '">(0)</span> →<select data-m="' + t.id + '">' + toneOpts ( true, true, false ) + '</select></label>';
-			});
-			h += '</div>';
+			var baseT = srcTones.filter ( function ( t ) { return !t.extra; } ), extraT = srcTones.filter ( function ( t ) { return t.extra; } );
+			function chip ( t ) {
+				return '<label data-ml="' + t.id + '">' +
+					'<span class="pk_tc_lh"><span class="pk_tc_ln">' + esc ( toneName0 ( t ) ) + '</span><span class="pk_tc_ch">' + esc ( chaoTxt ( t ) ) + '</span>' +
+					( AUTO_MAP ? '<span class="pk_tc_ar" aria-hidden="true">→</span>' : '' ) + '</span>' +
+					( AUTO_MAP ? '<select data-m="' + t.id + '">' + toneOpts ( true, true, false ) + '</select>' : '' ) +
+					( t.extra ? '<button type="button" class="pk_tc_xr" data-xr="' + t.id + '" title="' + esc ( tf ( 'tc.rm_tone', '移除這個聲調', 'Remove this tone' ) ) + '" aria-label="' + esc ( tf ( 'tc.rm_tone', '移除這個聲調', 'Remove this tone' ) ) + '">&#10005;</button>' : '' ) + '</label>';
+			}
+			var h = '<div class="pk_tc_mh"><span class="pk_tc_mt">' + esc ( tf ( 'tc.map_title', '聲調設定', 'Tone settings' ) ) + '</span>' +
+				( AUTO_MAP ? '<button type="button" class="pk_tc_b" data-k="clr" title="' + esc ( tf ( 'tc.clear_tip', '清除對應規則（表格裡逐字指定的不受影響）', 'Clear the mapping (per-row choices are kept)' ) ) + '">' + esc ( tf ( 'tc.clear', '清除對應', 'Clear mapping' ) ) + '</button>' : '' ) + '</div>';
+			/* ① 基本聲調：該腔調的本調與調值 */
+			h += '<div class="pk_tc_sh">' + esc ( tf ( 'tc.sec_base', '基本聲調（本調）', 'Base tones' ) ) + '</div><div class="pk_tc_mg">' + baseT.map ( chip ).join ( '' ) + '</div>';
+			/* ② 變調時多出來的調型（如詔安的中平 33）：呈現出來，可增減 */
+			h += '<div class="pk_tc_sh"><span>' + esc ( tf ( 'tc.sec_extra', '變調時多出來的調型', 'Extra contours from sandhi' ) ) + '</span>' +
+				'<button type="button" class="pk_tc_b' + ( addOpen ? ' on' : '' ) + '" data-k="addb" aria-expanded="' + ( addOpen ? 'true' : 'false' ) + '" title="' + esc ( tf ( 'tc.add_tip', '加入這個語言還可能用到的調型（例如詔安客語的中平 33），或自訂調值', 'Add other contours this language may use (e.g. mid level 33 in Zhaoan), or a custom contour' ) ) + '">+ ' + esc ( tf ( 'tc.add_tone', '增加調型', 'Add contour' ) ) + '</button></div>';
+			if (addOpen) h += addPanelHtml ();
+			h += extraT.length ? '<div class="pk_tc_mg">' + extraT.map ( chip ).join ( '' ) + '</div>'
+				: '<div class="pk_tc_hint">' + esc ( tf ( 'tc.extra_none', '（這個腔調目前沒有加入任何變調調型）', '(No extra contours added for this variety)' ) ) + '</div>';
+			/* ③ 變調規則：預留（規則不是單純一對一，之後另外處理） */
+			h += '<div class="pk_tc_sh">' + esc ( tf ( 'tc.sec_rule', '變調規則', 'Sandhi rules' ) ) + '</div>' +
+				'<div class="pk_tc_hint">' + esc ( tf ( 'tc.rule_soon', '尚未提供。規則會依前後字與語境決定，不是單純一對一，之後另外設計；只會用在「單音本調」的音檔上，語流變調的音檔不會套用。', 'Not available yet. Rules depend on neighbouring syllables and context, so they are not simple one-to-one maps; they will only apply to citation-tone recordings, never to natural speech.' ) ) + '</div>';
 			el.mapbar.innerHTML = h;
-			el.rot = el.mapbar.querySelector ( '[data-k=rot]' );
 			el.clr = el.mapbar.querySelector ( '[data-k=clr]' );
-			el.rot.onclick = function () {
-				var m = rotateMap ( langId, accId );
-				[].forEach.call ( el.mapbar.querySelectorAll ( 'select[data-m]' ), function ( s ) { s.value = m[ s.getAttribute ( 'data-m' ) ] || ''; } );
-				updateCounts (); draw ();
-			};
-			el.clr.onclick = function () {
+			el.addb = el.mapbar.querySelector ( '[data-k=addb]' );
+			if (el.clr) el.clr.onclick = function () {
 				[].forEach.call ( el.mapbar.querySelectorAll ( 'select[data-m]' ), function ( s ) { s.value = ''; } );
 				updateCounts (); draw ();
 			};
+			el.addb.onclick = function () { var mp = snapMap (); addOpen = !addOpen; buildAll (); restoreMap ( mp ); updateCounts (); };
+			if (addOpen) {
+				var ds = el.mapbar.querySelector ( '[data-k=addsel]' ), dc = el.mapbar.querySelector ( '[data-k=addc]' ), dg = el.mapbar.querySelector ( '[data-k=addgo]' );
+				ds.onchange = function () { dc.style.display = ds.value === 'custom' ? '' : 'none'; if (ds.value === 'custom') dc.focus (); };
+				dc.onkeydown = function ( e ) { if (e.key === 'Enter') { e.preventDefault (); dg.click (); } };
+				dg.onclick = function () {
+					var v = ds.value, c;
+					if (v === 'custom') {
+						c = String ( dc.value ).replace ( /[^1-5]/g, '' );
+						if (!c || c.length > 4) return status ( tf ( 'tc.add_bad', '請輸入 1~5 的五度標記，例如 35、214', 'Enter Chao digits 1–5, e.g. 35 or 214' ) );
+						v = 'x' + c;
+					}
+					var t = TS.setAdded ( langId, accId, TS.added ( langId, accId ).map ( function ( x ) { return x.id; } ).concat ( [ v ] ) );
+					if (!t.some ( function ( x ) { return x.id === v; } )) return status ( tf ( 'tc.add_dup', '這個調值已經在清單裡了', 'This contour is already in the list' ) );
+					addOpen = false; status ( '' );
+					extrasChanged ();
+				};
+			}
 		}
+
+		/* [新增 v8] 額外聲調 ---------------------------------------------------- */
+		var addOpen = false;
+		function addedHas ( id ) { return TS.added ( langId, accId ).some ( function ( t ) { return t.id === id; } ); }
+		/* 目前這個腔調有沒有這個聲調（或是自訂五度字串） */
+		function toneKnown ( id ) { return /^[1-5]+$/.test ( id ) || curTones ().some ( function ( t ) { return t.id === id; } ); }
+		/* 聲調設定裡的名稱：拿掉括號裡的調值（調值另外顯示）；自訂調值只叫「自訂」 */
+		function toneName0 ( t ) {
+			if (/^x[1-5]+$/.test ( t.id )) return tf ( 'tc.custom_s', '自訂', 'Custom' );
+			return toneLabel ( t ).replace ( /\s*[（(]\s*[1-5]+[^）)]*[）)]\s*$/, '' );
+		}
+		function chaoTxt ( t ) { return t.chao + ( t.short && String ( t.chao ).length > 1 ? ' ' + tf ( 'tc.short', '短', 'short' ) : '' ); }
+		/* 「＋ 增加聲調」面板：該腔調常見的額外聲調、通用調值、自訂；已經有的調值不再列出 */
+		function addPanelHtml () {
+			var have = {};
+			TS.tones ( langId, accId ).forEach ( function ( t ) { have[ t.chao + ( t.short ? 's' : '' ) ] = 1; } );
+			function ok ( t ) { return !have[ t.chao + ( t.short ? 's' : '' ) ]; }
+			var spec = TS.extras ( langId, accId ).filter ( ok ), gen = TS.GENERIC.filter ( ok ), o = '';
+			if (spec.length) o += '<optgroup label="' + esc ( tf ( 'tc.add_grp_lang', '這個腔調常見的', 'Common in this variety' ) ) + '">' + optList ( spec ) + '</optgroup>';
+			if (gen.length) o += '<optgroup label="' + esc ( tf ( 'tc.generic', '通用調值', 'Generic contours' ) ) + '">' + optList ( gen ) + '</optgroup>';
+			o += '<option value="custom">' + esc ( tf ( 'tc.add_custom', '自訂調值…', 'Custom contour…' ) ) + '</option>';
+			return '<div class="pk_tc_addp"><select data-k="addsel" aria-label="' + esc ( tf ( 'tc.add_tone', '增加聲調', 'Add tone' ) ) + '">' + o + '</select>' +
+				'<input type="text" data-k="addc" placeholder="35" maxlength="4" inputmode="numeric" style="display:none" aria-label="' + esc ( tf ( 'tc.add_custom', '自訂調值…', 'Custom contour…' ) ) + '">' +
+				'<button type="button" class="pk_tc_b pri" data-k="addgo">' + esc ( tf ( 'tc.add_go', '加入', 'Add' ) ) + '</button></div>';
+		}
+		/* 重建選單前先記下使用者已設的對應規則與逐字選擇，重建後還原（選項已不存在的就退回預設） */
+		function snapMap () {
+			var m = {};
+			[].forEach.call ( el.mapbar.querySelectorAll ( 'select[data-m]' ), function ( x ) { m[ x.getAttribute ( 'data-m' ) ] = x.value; } );
+			return m;
+		}
+		function restoreMap ( m ) {
+			[].forEach.call ( el.mapbar.querySelectorAll ( 'select[data-m]' ), function ( x ) {
+				var v = m[ x.getAttribute ( 'data-m' ) ];
+				x.value = v == null ? '' : v;
+				if (x.selectedIndex < 0) x.value = '';
+			});
+		}
+		function snapRows () {
+			return plan.map ( function ( p, k ) {
+				var fs = rowSel ( 'from', k ), fc = rowSel ( 'fromc', k ), ts = rowSel ( 'to', k ), tc = rowSel ( 'toc', k );
+				return fs && ts ? { f: fs.value, fc: fc ? fc.value : '', t: ts.value, tc: tc ? tc.value : '' } : null;
+			});
+		}
+		function restoreRows ( rows ) {
+			if (!rows || rows.length !== plan.length) return ;
+			plan.forEach ( function ( p, k ) {
+				var r = rows[ k ]; if (!r) return ;
+				var fs = rowSel ( 'from', k ), fc = rowSel ( 'fromc', k ), ts = rowSel ( 'to', k ), tc = rowSel ( 'toc', k );
+				if (p.manual) { fs.value = r.f; if (fs.selectedIndex < 0) { fs.value = p.from; p.manual = false; } }
+				if (fc) fc.value = r.fc;
+				ts.value = r.t; if (ts.selectedIndex < 0) ts.value = '@';
+				if (tc) tc.value = r.tc;
+			});
+		}
+		/* 加入／移除額外聲調之後：記住、清快取，重新偵測（候選多了或少了一個調值；手動改過的原聲調保留），
+		 * 重建各處選單，並還原使用者之前設好的對應與逐字選擇 */
+		function extrasChanged () {
+			extraPrefs[ langId + '|' + accId ] = TS.added ( langId, accId ).map ( function ( t ) { return t.id; } );
+			remember ();
+			var mp = snapMap (), rows = snapRows ();
+			plan.forEach ( function ( p, k ) { var fs = rowSel ( 'from', k ); if (p.manual && fs && fs.value !== 'custom') p.from = fs.value; } );   /* 手動列的原聲調以畫面上的為準 */
+			cache = null; cacheKey = ''; sylCache = {}; sylCacheN = 0;
+			if (track) detectAll ();
+			buildAll (); fillReg (); buildRows ();
+			restoreMap ( mp ); restoreRows ( rows );
+			if (track) syncRows (); else updateCounts ();
+			draw ();
+		}
+		function removeExtra ( id ) {
+			TS.setAdded ( langId, accId, TS.added ( langId, accId ).map ( function ( t ) { return t.id; } ).filter ( function ( x ) { return x !== id; } ) );
+			extrasChanged ();
+		}
+
+		/* 「原聲調 → 改成」：收成一個按鈕，點開才顯示設定（有設規則時按鈕變色並顯示數量） */
+		function syncMapBtn ( n ) {
+			el.mapbtn.innerHTML = esc ( tf ( 'tc.map_btn', '聲調', 'Tones' ) ) + ( n ? '<span class="pk_tc_bdg">' + n + '</span>' : '' ) + ' <span aria-hidden="true">&#9662;</span>';
+			el.mapbtn.className = 'pk_tc_b' + ( n || el.mappop.style.display === 'block' ? ' on' : '' );
+		}
+		function mapShow ( on ) {
+			if (on) {
+				advShow ( false );
+				var pr = pk.getBoundingClientRect (), br = el.mapbtn.getBoundingClientRect ();
+				el.mappop.style.top = Math.round ( br.bottom - pr.top + 4 ) + 'px';
+			}
+			el.mappop.style.display = on ? 'block' : 'none';
+			el.mapbtn.setAttribute ( 'aria-expanded', on ? 'true' : 'false' );
+			var n = 0; [].forEach.call ( el.mapbar.querySelectorAll ( 'select[data-m]' ), function ( s ) { if (s.value) ++n; } );
+			syncMapBtn ( n );
+		}
+		el.mapbtn.onclick = function () { mapShow ( el.mappop.style.display !== 'block' ); };
 
 		/* 說明鈕：有警告時變橘色並加 ⚠；點擊開啟說明視窗 */
 		function refreshInfo () {
 			var has = !!( el.regw.textContent || el.warn.textContent );
 			el.info.className = 'pk_tc_b pk_tc_i' + ( has ? ' w' : '' );
-			el.info.textContent = ( has ? '⚠ ' : 'ⓘ ' ) + tf ( 'tc.help', '說明', 'Help' );
+			el.info.textContent = has ? '⚠' : 'ⓘ';
+			el.info.setAttribute ( 'aria-label', tf ( 'tc.help', '說明', 'Help' ) );
+			el.info.title = tf ( 'tc.help', '說明', 'Help' );
 		}
 		function popShow ( on ) { el.pop.style.display = on ? 'flex' : 'none'; }
 		el.info.onclick = function () { popShow ( el.pop.style.display !== 'flex' ); };
@@ -764,7 +1244,16 @@
 		el.pop.addEventListener ( 'mousedown', function ( e ) { if (e.target === el.pop) popShow ( false ); } );
 		refreshInfo ();
 		function status ( s ) { el.status.textContent = s || ''; }
-		function stopPlay () { if (playSrc) { try { playSrc.stop (); } catch (e) {} try { playSrc.disconnect (); } catch (e2) {} playSrc = null; } }
+		/* 播放中的按鈕：反白（強調色底）＋ ▶ 變 ■，再按一次＝停止；放完自動還原 */
+		function markBtn ( b, on ) {
+			if (!b) return ;
+			b.classList.toggle ( 'pk_tc_pl', !!on );
+			var ic = b.querySelector ( '.pk_tc_ic' );
+			if (ic) ic.textContent = on ? '\u25A0' : '\u25B6';
+		}
+		function pend ( b ) { stopPlay (); playBtn = b || null; markBtn ( playBtn, true ); }
+		function stopSrc () { if (playSrc) { playSrc.onended = null; try { playSrc.stop (); } catch (e) {} try { playSrc.disconnect (); } catch (e2) {} playSrc = null; } }
+		function stopPlay () { stopSrc (); if (playBtn) { markBtn ( playBtn, false ); playBtn = null; } }
 
 		function regOpt ( v, label, off ) { return '<option value="' + v + '"' + ( off ? ' disabled' : '' ) + '>' + esc ( label ) + '</option>'; }
 		function fillReg () {
@@ -773,35 +1262,37 @@
 				regOpt ( 'saved', savedReg ? tf ( 'tc.reg_saved', '上次音域', 'Last register (saved from a phrase)' ) : tf ( 'tc.reg_saved_none', '上次音域（無）', 'Last register (none yet: analyse a phrase first)' ), !savedReg ) +
 				regOpt ( 'ref', tf ( 'tc.reg_ref', '某字校準', 'Calibrate from one syllable' ), !syls.length ) +
 				regOpt ( 'manual', tf ( 'tc.reg_manual', '手動', 'Manual' ) ) +
-				regOpt ( 'male', tf ( 'tc.reg_male', '男聲（預設）', 'Preset: male (rough)' ) ) +
-				regOpt ( 'female', tf ( 'tc.reg_female', '女聲（預設）', 'Preset: female (rough)' ) ) +
-				regOpt ( 'child', tf ( 'tc.reg_child', '兒童（預設）', 'Preset: child (rough)' ) );
+				regOpt ( 'male', tf ( 'tc.reg_male', '男聲', 'Male (rough)' ) ) +
+				regOpt ( 'female', tf ( 'tc.reg_female', '女聲', 'Female (rough)' ) ) +
+				regOpt ( 'child', tf ( 'tc.reg_child', '兒童', 'Child (rough)' ) );
 			el.reg.value = regMode;
+			fitSel ( el.reg );
 			showRegWraps ();
 		}
 		function showRegWraps () { el.refwrap.style.display = regMode === 'ref' ? '' : 'none'; el.manwrap.style.display = regMode === 'manual' ? '' : 'none'; }
 		function fillRef () {
 			var h = '', k;
-			for (k = 0; k < syls.length; ++k) h += '<option value="' + k + '">' + ( k + 1 ) + '（' + syls[ k ].a.toFixed ( 2 ) + ' s）</option>';
+			for (k = 0; k < syls.length; ++k) h += '<option value="' + k + '">' + ( k + 1 ) + '</option>';
 			el.refn.innerHTML = h; if (refN >= syls.length) refN = 0; el.refn.value = refN;
-			var tl = TS.tones ( langId, accId ).filter ( function ( t ) { return t.src !== false && !t.variant; } );
-			el.reft.innerHTML = optList ( tl );
+			var tl = TS.tones ( langId, accId ).filter ( function ( t ) { return t.src !== false; } );
+			el.reft.innerHTML = optList ( tl, true );
 			if (!tl.some ( function ( t ) { return t.id === refTone; } )) refTone = tl.length ? tl[ 0 ].id : '';
 			el.reft.value = refTone;
 		}
 
 		/* 依音域基準模式偵測全部音節（保留使用者手動改過的列） */
 		function detectAll () {
-			var cands = TS.candidates ( langId, accId ), o = {}, durs = syls.map ( function ( s ) { return s.b - s.a; } ), old = plan;
+			var cands = TS.candidates ( langId, accId, { baseOnly: srcKind === 'citation' } ), o = {}, durs = syls.map ( function ( s ) { return s.b - s.a; } ), old = plan;
 			if (regMode === 'saved' && savedReg) o.scale = { center: savedReg.c, step: savedReg.s, spread: null, reliable: true, source: 'saved' };
 			else if (regMode === 'male' || regMode === 'female' || regMode === 'child') o.scale = presetScale ( regMode );
 			else if (regMode === 'manual') o.scale = fixedScale ( manHz, 3, 'manual' );
 			else if (regMode === 'ref' && sylHz[ refN ]) { var cal = calibrate ( sylHz[ refN ], refTone, 3 ); if (cal) o.scale = cal; }
+			if (Learn.enabled ()) o.learn = Learn.templates ( langId, accId );
 			var det = detectTones ( sylHz, durs, cands, o );
 			scaleNow = det.scale; scale = det.scale;
 			plan = det.items.map ( function ( r, k ) {
-				var p = { from: r.id, to: null, conf: r.conf, level: r.level, alts: r.alts, margin: r.margin };
-				if (old[ k ] && old[ k ].manual && old.length === det.items.length) { p.from = old[ k ].from; p.manual = true; }
+				var p = { from: r.id, to: null, conf: r.conf, level: r.level, alts: r.alts, margin: r.margin, learned: !!r.learned };
+				if (old[ k ] && old[ k ].manual && old.length === det.items.length && toneKnown ( old[ k ].from )) { p.from = old[ k ].from; p.manual = true; }
 				return p;
 			});
 			/* 一整句（可信的自動音域）→ 記下，之後只選一個字時可以「沿用上次音域」 */
@@ -816,10 +1307,20 @@
 			try { ab = new w.AudioBuffer ({ numberOfChannels: 1, length: n, sampleRate: sr }); } catch (e) {}
 			if (!ab) { try { ab = ws.backend.ac.createBuffer ( 1, n, sr ); } catch (e2) {} }
 			ab.copyToChannel ( mono, 0 );
+			var eDb = null, regsAll = [];
 			w.PKF0.trackBuffer ( ab ).then ( function ( tr ) {
+				if (closed || tok !== anaTok) return tr;
+				/* [新增] 有能量卻沒抓到音高的區段 → 用較寬鬆的有聲門檻補抓（沒有這種區段就不多跑一次） */
+				eDb = frameDb ( mono, sr, tr.n, tr.rate );
+				var regs = regsAll = rescueRegions ( tr, eDb );
+				if (!regs.length) return tr;
+				return w.PKF0.trackBuffer ( ab, { voicing: 0.65 } ).then ( function ( tr2 ) {
+					return closed || tok !== anaTok ? tr : mergeRescue ( tr, tr2, regs );
+				}, function () { return tr; } );
+			} ).then ( function ( tr ) {
 				if (closed || tok !== anaTok) return ;
 				track = tr;
-				var raw = w.PKSpeech.syllables ( tr, { channels: [ mono ], sr: sr } ) || [];
+				var raw = w.PKSpeech.syllables ( eDb ? bridgeGaps ( tr, eDb, regsAll ) : tr, { channels: [ mono ], sr: sr } ) || [];
 				syls = raw.filter ( function ( s ) {
 					var v = 0; for (var k = s.i0; k < s.i1 && k < tr.n; ++k) if (tr.f0[ k ] > 0) ++v;
 					return v >= MIN_VOICED;        /* 太短的有聲段（共鳴尾音、雜訊）不當成一個字 */
@@ -843,14 +1344,14 @@
 			var h = '';
 			syls.forEach ( function ( s, k ) {
 				h += '<tr><td>' + ( k + 1 ) + '</td><td class="pk_tc_tm">' + s.a.toFixed ( 2 ) + ' – ' + s.b.toFixed ( 2 ) + '</td>' +
-					'<td><div class="pk_tc_cell"><select data-r="from" data-i="' + k + '">' + toneOpts ( false, false, true ) + '</select><input type="text" data-r="fromc" data-i="' + k + '" placeholder="51" style="display:none"></div></td>' +
+					'<td><div class="pk_tc_cell"><select data-r="from" data-i="' + k + '">' + toneOpts ( false, false, true, true ) + '</select><input type="text" data-r="fromc" data-i="' + k + '" placeholder="51" style="display:none"></div></td>' +
 					'<td class="pk_tc_cf" data-r="conf" data-i="' + k + '"></td>' +
 					/* 「改成」：第一個選項「依對應」＝照頁籤二的規則（預設）；選別的＝只改這一列，優先於規則 */
-					'<td class="pk_tc_tc"><div class="pk_tc_cell"><select data-r="to" data-i="' + k + '"><option value="@">' + esc ( tf ( 'tc.by_map', '依對應', 'By mapping' ) ) + '</option>' + toneOpts ( true, true, true ) + '</select><input type="text" data-r="toc" data-i="' + k + '" placeholder="51" style="display:none">' +
+					'<td class="pk_tc_tc"><div class="pk_tc_cell"><select data-r="to" data-i="' + k + '"><option value="@">' + esc ( AUTO_MAP ? tf ( 'tc.by_map', '依對應', 'By mapping' ) : tf ( 'tc.keep', '不變', 'Keep' ) ) + '</option>' + toneOpts ( AUTO_MAP, true, true ) + '</select><input type="text" data-r="toc" data-i="' + k + '" placeholder="51" style="display:none">' +
 						'' +
-						'<button type="button" class="pk_tc_p pk_tc_rst" data-r="rst" data-i="' + k + '" style="display:none" title="' + esc ( tf ( 'tc.restore', '還原為依對應', 'Restore: follow the mapping' ) ) + '">&#8634;</button></div></td>' +
-					'<td><button class="pk_tc_p" data-r="po" data-i="' + k + '" title="' + esc ( tf ( 'tc.orig', '原音', 'Original' ) ) + '">&#9654; ' + esc ( tf ( 'tc.orig_s', '原', 'O' ) ) + '</button>' +
-					'<button class="pk_tc_p" data-r="pc" data-i="' + k + '" title="' + esc ( tf ( 'tc.preview', '試聽轉換後', 'Preview result' ) ) + '">&#9654; ' + esc ( tf ( 'tc.conv_s', '後', 'R' ) ) + '</button></td></tr>';
+						'<button type="button" class="pk_tc_p pk_tc_rst" data-r="rst" data-i="' + k + '" style="display:none" title="' + esc ( tf ( 'tc.restore', '還原為依對應', 'Restore: follow the mapping' ) ) + '">&#8634;</button><button type=\"button\" class=\"pk_tc_p pk_tc_tp\" data-r=\"tpl\" data-i=\"' + k + '\" style=\"display:none\"></button></div></td>' +
+					'<td><button class="pk_tc_p" data-r="po" data-i="' + k + '" title="' + esc ( tf ( 'tc.orig', '原音', 'Original' ) ) + '"><span class="pk_tc_ic">&#9654;</span> ' + esc ( tf ( 'tc.orig_s', '原', 'O' ) ) + '</button>' +
+					'<button class="pk_tc_p" data-r="pc" data-i="' + k + '" title="' + esc ( tf ( 'tc.preview', '試聽轉換後', 'Preview result' ) ) + '"><span class="pk_tc_ic">&#9654;</span> ' + esc ( tf ( 'tc.conv_s', '後', 'R' ) ) + '</button></td></tr>';
 			});
 			el.rows.innerHTML = h;
 			[].forEach.call ( el.rows.querySelectorAll ( 'select[data-r=from]' ), function ( sel ) { sel.value = plan[ +sel.getAttribute ( 'data-i' ) ].from; } );
@@ -870,7 +1371,7 @@
 				var fs = rowSel ( 'from', k ), fc = rowSel ( 'fromc', k ), ts = rowSel ( 'to', k ), tc = rowSel ( 'toc', k );
 				fc.style.display = fs.value === 'custom' ? '' : 'none'; tc.style.display = ts.value === 'custom' ? '' : 'none';
 				var from = fs.value === 'custom' ? ( parseChao ( fc.value ) ? fc.value.replace ( /[^1-5]/g, '' ) : 't1' ) : fs.value, to;
-				if (ts.value === '@') to = fs.value === 'custom' ? null : mapTo ( fs.value );
+				if (ts.value === '@') to = fs.value === 'custom' || !AUTO_MAP ? null : mapTo ( fs.value );
 				else if (ts.value === 'custom') to = parseChao ( tc.value ) ? tc.value.replace ( /[^1-5]/g, '' ) : null;
 				else to = ts.value || null;
 				if (to && sameTone ( to, from )) to = null;
@@ -893,14 +1394,26 @@
 		/* [新增] 窄版（面板寬 < 580）：表格內的選單選項只顯示調值數字；變寬再還原完整文字 */
 		var nar = false;
 		function applyNar () {
+			if (el.kind && el.kind.options.length) {
+				[].forEach.call ( el.kind.options, function ( o ) { var t = o.getAttribute ( nar ? 'data-s' : 'data-f' ); if (t !== null && o.textContent !== t) o.textContent = t; } );
+				fitSel ( el.kind );
+			}
 			[].forEach.call ( pk.querySelectorAll ( 'td option[data-s], th option[data-s]' ), function ( o ) {
 				var t = o.getAttribute ( nar ? 'data-s' : 'data-f' );
 				if (t !== null && o.textContent !== t) o.textContent = t;
 			});
+			/* 底部按鈕：窄版用字精簡（▶ 原／▶ 後、⚙），完整名稱放 aria-label */
+			var fo = tf ( 'tc.orig', '原音', 'Original' ), fp = tf ( 'tc.preview_s', '轉換後', 'Result' );
+			el.orig.innerHTML = '<span class="pk_tc_ic">&#9654;</span> ' + esc ( nar ? tf ( 'tc.orig_s', '原', 'O' ) : fo );
+			el.prev.innerHTML = '<span class="pk_tc_ic">&#9654;</span> ' + esc ( nar ? tf ( 'tc.after_s', '後', 'R' ) : fp );
+			if (playBtn === el.orig || playBtn === el.prev) markBtn ( playBtn, true );        /* 重畫文字時保留播放中的樣式 */
+			el.orig.setAttribute ( 'aria-label', fo ); el.prev.setAttribute ( 'aria-label', fp );
+			syncAdv ();
 			updateAuto ();
 		}
 		/* 每列「依對應」：結果直接寫在第一個選項上（依對應 → 去聲／依對應：不變）；逐字指定的列顯示 ↺ */
 		function updateAuto () {
+			var pls = el.rows.children.length ? readPlan () : null;
 			plan.forEach ( function ( p, k ) {
 				var ts = rowSel ( 'to', k ), fs = rowSel ( 'from', k ), rs = rowSel ( 'rst', k );
 				if (!ts || !fs || !rs) return ;
@@ -908,28 +1421,37 @@
 				var mt = fs.value !== 'custom' ? mapTo ( fs.value ) : null;
 				if (mt && sameTone ( mt, fs.value )) mt = null;
 				var tt = mt && TS.find ( mt );
-				ts.options[ 0 ].textContent = nar
+				if (AUTO_MAP) ts.options[ 0 ].textContent = nar
 					? tf ( 'tc.by_map_s', '對應', 'Map' ) + ( mt ? '→' + ( tt ? tt.chao : mt ) : '：' + tf ( 'tc.keep', '不變', 'Keep' ) )
 					: tf ( 'tc.by_map', '依對應', 'By mapping' ) + ( mt ? ' → ' + toneShort ( mt ) : '：' + tf ( 'tc.keep', '不變', 'Keep' ) );
+				/* [新增] ◈ 範本鈕：有目標、模式是自然範本、而且這個聲調有記住的字才顯示 */
+				var tb = rowSel ( 'tpl', k ), tp = pls && pls[ k ], lst = tb && tsrc === 'tpl' && tp && tp.to ? Learn.tplOf ( langId, accId, tp.to ) : [], sy = syls[ k ];
+				if (tb) {
+					tb.style.display = lst.length ? '' : 'none';
+					if (lst.length && sy) {
+						var pk2 = tplPick[ sy.i0 + ':' + sy.i1 ];
+						tb.textContent = '\u25C8 ' + ( pk2 != null ? ( pk2 % lst.length + 1 ) + '/' + lst.length : tf ( 'tc.tpl_auto', '範本', 'Tpl' ) );
+						tb.title = tf ( 'tc.tpl_tip', '用你記住的字當範本（共 ' + lst.length + ' 個）。點一下換下一個並試聽，最後回到自動。', 'Using a remembered syllable as the template (' + lst.length + '). Click for the next one; the last click returns to auto.' );
+					}
+				}
 			});
 		}
 		function updateCounts () {
 			if (!el.mapbar) return ;
 			var cn = countByTone ( fromIds () ), mr = 0;
-			[].forEach.call ( el.mapbar.querySelectorAll ( '[data-n]' ), function ( nd ) {
-				var c = cn[ nd.getAttribute ( 'data-n' ) ] || 0;
-				nd.textContent = '(' + c + ')'; nd.className = 'pk_tc_n' + ( c ? '' : ' z' ); nd.parentNode.className = c ? '' : 'z';
+			[].forEach.call ( el.mapbar.querySelectorAll ( 'label[data-ml]' ), function ( lb ) {
+				var c = cn[ lb.getAttribute ( 'data-ml' ) ] || 0, lh = lb.querySelector ( '.pk_tc_lh' );
+				lb.classList.toggle ( 'z', !c ); lh && lh.classList.toggle ( 'z', !c );
 			});
 			[].forEach.call ( el.mapbar.querySelectorAll ( 'select[data-m]' ), function ( s ) { if (s.value) ++mr; } );
-			el.mapn.textContent = mr; el.mapn.className = 'pk_tc_bdg' + ( mr ? '' : ' z' );       /* 頁籤二標籤上的規則數 */
+			syncMapBtn ( mr );
 			if (track && plan.length) {
 				var pl = readPlan (), m = 0; pl.forEach ( function ( x ) { if (x.to) ++m; } );
 				nChg = m; chgFlags = pl.map ( function ( x ) { return !!x.to; } );
 				updateAuto ();
 				[].forEach.call ( el.rows.children, function ( tr, k ) { tr.className = rowCls ( k ); } );
-				el.chg.textContent = tf ( 'tc.will_change', '將改', 'Will change' ) + ' ' + m + ' / ' + plan.length + ' ' + tf ( 'tc.chars', '字', 'syllables' );
 			}
-			else { nChg = 0; chgFlags = []; el.chg.textContent = ''; }
+			else { nChg = 0; chgFlags = []; }
 			syncBtns ();
 		}
 		function rowCls ( k ) {
@@ -950,14 +1472,17 @@
 		var SRC_NAMES = { auto: [ '自動（依選取範圍）', 'auto, from selection' ], 'auto+': [ '自動，依聲調回頭修正', 'auto, refined by assigned tones' ], saved: [ '沿用上次', 'last register' ], preset: [ '預設（粗略）', 'preset (rough)' ], manual: [ '手動', 'manual' ], ref: [ '以某字校準', 'calibrated' ] };
 		function toneName ( id ) { var t = TS.find ( id ); return t ? toneLabel ( t ) + ' ' + t.chao : id; }
 		function confHtml ( p ) {
-			if (p.manual) return '<span class="pk_tc_c0">' + esc ( tf ( 'tc.manual', '手動', 'Manual' ) ) + '</span>';
+			var kk = plan.indexOf ( p );
+			if (p.manual) return '<span class="pk_tc_c0"' + ( p.remembered ? ' title="' + esc ( tf ( 'tc.lrn_saved', '已記住這個字的聲調', 'Remembered' ) ) + '"' : '' ) + '>' + esc ( tf ( 'tc.manual', '手動', 'Manual' ) ) + ( p.remembered ? ' ★' : '' ) + '</span>';
 			var tip = '', pc = Math.round ( p.conf * 100 ), mark = p.level === 'high' ? '✓' : p.level === 'mid' ? '?' : '??';
 			if (p.level !== 'high') {
-				if (p.alts && p.alts.length) tip = tf ( 'tc.alts', '也可能是：', 'Could also be: ' ) + p.alts.map ( toneName ).join ( '、' );
+				if (p.alts && p.alts.length) tip = tf ( 'tc.alts', '也可能是：', 'Could also be: ' ) + p.alts.map ( function ( id ) { var t = TS.find ( id ); return t ? t.chao + ( t.short && String ( t.chao ).length > 1 ? ' ' + tf ( 'tc.short', '短', 'short' ) : '' ) : id; } ).join ( '、' );
 				if (scaleNow && !scaleNow.reliable) tip += ( tip ? '\n' : '' ) + tf ( 'tc.tip_noreg', '音域資料不足，高低相近的聲調（如 55／33／11）無法分辨', 'Not enough pitch-range information: level tones (55/33/11) cannot be told apart' );
 				if (!tip) tip = tf ( 'tc.tip_poor', '曲線與任何聲調都不太像', 'The contour does not match any tone well' );
 			}
-			return '<span class="pk_tc_c_' + p.level + '"' + ( tip ? ' title="' + esc ( tip ) + '"' : '' ) + '>' + mark + ' ' + pc + '%</span>';
+			if (p.learned) tip += ( tip ? '\n' : '' ) + tf ( 'tc.lrn_used', '★ 參考了你標過的字', '★ Uses syllables you labelled' );
+			return '<span class="pk_tc_c_' + p.level + '"' + ( tip ? ' title="' + esc ( tip ) + '"' : '' ) + '>' + mark + ' ' + pc + '%' + ( p.learned ? ' ★' : '' ) + '</span>' +
+				( kk >= 0 ? ' <button type="button" class="pk_tc_p" data-r="ok" data-i="' + kk + '" title="' + esc ( tf ( 'tc.lrn_ok', '確認正確，並記住這個字', 'Confirm as correct and remember' ) ) + '" aria-label="' + esc ( tf ( 'tc.lrn_ok', '確認正確，並記住這個字', 'Confirm as correct and remember' ) ) + '">&#10003;</button>' : '' );
 		}
 		function hzOfDeg ( deg ) { return Math.pow ( 2, ( scaleNow.center + ( deg - 3 ) * scaleNow.step ) / 12 ); }
 		function updateReg () {
@@ -966,8 +1491,8 @@
 			el.reginfo.textContent = tf ( 'tc.reg', '基準', 'Register' ) + '：1 ≈ ' + Math.round ( hzOfDeg ( 1 ) ) + ' ・ 3 ≈ ' + Math.round ( hzOfDeg ( 3 ) ) + ' ・ 5 ≈ ' + Math.round ( hzOfDeg ( 5 ) ) + ' Hz';
 			el.reginfo.title = tf ( 'tc.deg', '度', 'deg' ) + '：' + ( en ? nm[ 1 ] : nm[ 0 ] );
 			var low = plan.filter ( function ( p ) { return !p.manual && p.level !== 'high'; } ).length, msg = [];
-			if (!scaleNow.reliable) msg.push ( tf ( 'tc.w_noreg', '⚠ 音域資料不足（只選了不到 3 個字，或音高高低差太小）：平調之間（如 55／33／11）分不出來，只能看曲線形狀。請在「基準」改選「上次音域」、「某字校準」或「手動」。', '⚠ Not enough pitch-range information (fewer than 3 syllables or too little pitch spread): level tones (55/33/11) cannot be told apart. Choose Last register, Calibrate or Manual.' ) );
-			if (low) msg.push ( low + ' ' + tf ( 'tc.w_low', '個字信心偏低（列表標示 ? 或 ??，底色變色）：請試聽後確認「原聲調」。', 'syllable(s) have low confidence (marked ? / ??): listen and check the original tone.' ) );
+			if (!scaleNow.reliable) msg.push ( tf ( 'tc.w_noreg', '⚠ 音域資料不足：請在「基準」改選「上次音域」、「某字校準」或「手動」。', '⚠ Not enough pitch range: set Register to Last register, Calibrate or Manual.' ) );
+			if (low) msg.push ( low + ' ' + tf ( 'tc.w_low', '個字信心偏低，請確認「原聲調」。', 'low-confidence syllable(s): check the original tone.' ) );
 			el.regw.textContent = msg.join ( ' ' );
 			refreshInfo ();
 		}
@@ -1074,7 +1599,7 @@
 		}
 		function resetSeg () {
 			if (!track || !autoSyls) return ;
-			applySeg ( autoSyls.map ( function ( s ) { return { i0: s.i0, i1: s.i1, a: s.a, b: s.b }; }), tf ( 'tc.seg_done_reset', '已回到自動切分', 'Back to automatic segmentation' ) );
+			applySeg ( autoSyls.map ( function ( s ) { return { i0: s.i0, i1: s.i1, a: s.a, b: s.b }; }), tf ( 'tc.seg_done_reset', '已重設', 'Reset to automatic' ) );
 		}
 
 		/* 浮動工具：點圖上的字（或右鍵）出現在點擊位置附近，做完一次就收起，圖的點擊仍是試聽 */
@@ -1084,17 +1609,14 @@
 		}
 		function showChip ( t, k, x, y ) {
 			if (!track) return ;
-			var b = {}, any = false, cw = el.chip.parentNode, W = cw.clientWidth, H = cw.clientHeight, cx, cy;
+			var b = {}, any = false;
 			[].forEach.call ( el.chip.querySelectorAll ( '[data-c]' ), function ( bt ) { b[ bt.getAttribute ( 'data-c' ) ] = bt; } );
 			var show = { split: splitPoint ( t ) >= 0, mprev: k > 0, mnext: k >= 0 && k < syls.length - 1, reset: segDirty () };
 			Object.keys ( b ).forEach ( function ( c ) { b[ c ].style.display = show[ c ] ? '' : 'none'; if (show[ c ]) any = true; });
 			if (!any) return hideChip ();
 			chipT = t; chipK = k;
 			el.chip.style.display = 'flex';
-			cx = Math.max ( 4, Math.min ( W - el.chip.offsetWidth - 4, x - el.chip.offsetWidth / 2 ) );
-			cy = y + 14;
-			if (cy + el.chip.offsetHeight > H - 2) cy = y - el.chip.offsetHeight - 14;
-			el.chip.style.left = Math.round ( cx ) + 'px'; el.chip.style.top = Math.round ( Math.max ( 2, cy ) ) + 'px';
+			
 			if (chipTmr) w.clearTimeout ( chipTmr );
 			chipTmr = w.setTimeout ( hideChip, 7000 );
 			soonDraw ();
@@ -1114,27 +1636,50 @@
 
 		/* 頁尾「音高設定」：音高幅度、字高放進彈出面板；不是預設值時按鈕反白並顯示目前設定 */
 		function advShow ( on ) {
+			if (on && el.mappop.style.display === 'block') mapShow ( false );
 			el.advp.style.display = on ? 'block' : 'none';
 			el.adv.setAttribute ( 'aria-expanded', on ? 'true' : 'false' );
 			syncAdv ();
 		}
 		function syncAdv () {
-			var chg = Math.abs ( range - 1 ) > 1e-6 || anchor !== 'src', open = el.advp.style.display === 'block';
-			el.adv.textContent = '⚙ ' + ( chg ? range.toFixed ( 2 ) + ( anchor === 'center' ? ' ' + tf ( 'tc.anchor_center', '保持原高', 'Keep height' ) : '' ) : tf ( 'tc.adv', '音高設定', 'Pitch' ) );
+			var chg = Math.abs ( range - 1 ) > 1e-6 || anchor !== 'src' || Math.abs ( natural - 0.7 ) > 1e-6 || tsrc !== 'tpl', open = el.advp.style.display === 'block';
+			var advTxt = tf ( 'tc.adv', '音高', 'Pitch' );
+			el.adv.textContent = '⚙' + ( chg ? ' ' + range.toFixed ( 2 ) + ( anchor === 'center' && !nar ? ' ' + tf ( 'tc.anchor_center', '保持原高', 'Keep height' ) : '' ) : ( nar ? '' : ' ' + advTxt ) );
+			el.adv.setAttribute ( 'aria-label', advTxt );
 			el.adv.className = 'pk_tc_b' + ( chg || open ? ' on' : '' );
 		}
 		el.adv.onclick = function () { advShow ( el.advp.style.display !== 'block' ); };
-		el.advrst.onclick = function () { el.range.value = 1; el.anchor.value = 'src'; el.range.oninput (); el.anchor.onchange (); };
+		el.advrst.onclick = function () { el.range.value = 1; el.anchor.value = 'src'; el.natural.value = 0.7; el.tsrc.value = 'tpl'; el.range.oninput (); el.natural.oninput (); el.tsrc.onchange (); el.anchor.onchange (); };
 		back.addEventListener ( 'mousedown', function ( e ) {
 			if (chipT >= 0 && !el.chip.contains ( e.target ) && e.target !== cv) hideChip ();
 			if (el.advp.style.display === 'block' && !el.advp.contains ( e.target ) && !el.adv.contains ( e.target )) advShow ( false );
+			if (el.mappop.style.display === 'block' && !el.mappop.contains ( e.target ) && !el.mapbtn.contains ( e.target )) mapShow ( false );
 		});
 
 		/* only = 音節索引：只改那一個字（逐字試聽用）；省略 = 全部 */
+		/* [新增] 第 k 個字、目標聲調 toId 的範本：手動挑的優先；否則取音長最接近的前 3 名，依字序輪流 */
+		function pickTpl ( k, toId ) {
+			var s = syls[ k ], lst = s ? Learn.tplOf ( langId, accId, toId ) : [];
+			if (!lst.length) return null;
+			var pk = tplPick[ s.i0 + ':' + s.i1 ];
+			if (pk != null) return lst[ pk % lst.length ];
+			var dur = s.b - s.a, sorted = lst.slice ().sort ( function ( a, b ) { return Math.abs ( ( a.d || dur ) - dur ) - Math.abs ( ( b.d || dur ) - dur ); } );
+			return sorted[ k % Math.min ( 3, sorted.length ) ];
+		}
+		function cycleTpl ( k ) {
+			var p = readPlan ()[ k ], s = syls[ k ];
+			if (!p || !p.to || !s || tsrc !== 'tpl') return ;
+			var lst = Learn.tplOf ( langId, accId, p.to ), key = s.i0 + ':' + s.i1, cur = tplPick[ key ];
+			if (!lst.length) return ;
+			if (cur == null) cur = 0; else if (cur + 1 >= lst.length) cur = null; else ++cur;
+			if (cur == null) delete tplPick[ key ]; else tplPick[ key ] = cur;
+			updateAuto (); draw (); playSyl ( k, false );
+		}
 		function target ( only ) {
 			var pl = readPlan ();
 			if (only != null) pl = pl.map ( function ( x, i ) { return i === only ? x : { from: x.from, to: null }; } );
-			return buildTarget ( track, syls, pl, { range: range, anchor: anchor } );
+			if (tsrc === 'tpl') pl = pl.map ( function ( x, i ) { var t = x.to ? pickTpl ( i, x.to ) : null; return t ? { from: x.from, to: x.to, tpl: t } : x; } );
+			return buildTarget ( track, syls, pl, { range: range, anchor: anchor, natural: natural } );
 		}
 
 		/* ---------- 繪製（顏色從主題變數讀，換主題會重畫） ---------- */
@@ -1151,7 +1696,7 @@
 			ctx.setTransform ( r, 0, 0, r, 0, 0 );
 			ctx.globalAlpha = 1; ctx.fillStyle = P.bg; ctx.fillRect ( 0, 0, W, H );
 			if (!track) { if (!src) drawHint ( P, W, H ); return ; }
-			var L = 44, R = W - 10, T = 10, B = H - 24, tg = el.rows.children.length ? target () : null, lo = 1e9, hi = 0, k;
+			var L = 32, R = W - 10, T = 10, B = H - 20, tg = el.rows.children.length ? target () : null, lo = 1e9, hi = 0, k;
 			for (k = 0; k < track.n; ++k) {
 				var a = track.f0[ k ], b = tg ? tg.f0[ k ] : 0;
 				if (a > 0) { lo = Math.min ( lo, a ); hi = Math.max ( hi, a ); }
@@ -1162,18 +1707,22 @@
 			geo = { L: L, R: R };
 			var yOf = function ( hz ) { return B - Math.log ( hz / lo ) / Math.log ( hi / lo ) * ( B - T ); };
 			var xOf = function ( i ) { return L + ( i / track.rate ) / src.dur * ( R - L ); };
-			ctx.strokeStyle = P.line; ctx.lineWidth = 1; ctx.globalAlpha = 0.5; ctx.strokeRect ( L + 0.5, T + 0.5, R - L, B - T ); ctx.globalAlpha = 1;
-			ctx.font = '12px system-ui,sans-serif'; ctx.fillStyle = P.txt; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+						ctx.font = '10px system-ui,sans-serif'; ctx.fillStyle = P.txt; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.globalAlpha = 0.75;
 			var ts = src.dur > 5 ? 1 : src.dur > 2 ? 0.5 : 0.2;
-			for (var t = 0; t <= src.dur + 1e-9; t += ts) { var x = L + t / src.dur * ( R - L ); ctx.fillText ( t.toFixed ( ts < 1 ? 1 : 0 ), x, B + 5 ); }
+			for (var t = 0; t <= src.dur + 1e-9; t += ts) { var x = L + t / src.dur * ( R - L ); ctx.fillText ( t.toFixed ( ts < 1 ? 1 : 0 ), x, B + 4 ); }
 			ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-			[ 80, 100, 120, 150, 200, 250, 300, 400, 500 ].forEach ( function ( h ) { if (h > lo * 1.05 && h < hi / 1.05 && yOf ( h ) > T + 14) ctx.fillText ( h, L - 5, yOf ( h ) ); });
+			var lastY = -99;
+			[ 500, 400, 300, 250, 200, 150, 120, 100, 80 ].forEach ( function ( h ) {
+				var yy = yOf ( h );
+				if (h > lo * 1.05 && h < hi / 1.05 && yy > T + 12 && Math.abs ( yy - lastY ) >= 12) { ctx.fillText ( h, L - 4, yy ); lastY = yy; }
+			});
+			ctx.globalAlpha = 1;
 			syls.forEach ( function ( s, j ) {
 				ctx.globalAlpha = chgFlags[ j ] ? 0.16 : j % 2 ? 0.07 : 0.14;
 				ctx.fillStyle = chgFlags[ j ] ? P.tgt : P.ac;
 				ctx.fillRect ( xOf ( s.i0 ), T, xOf ( s.i1 ) - xOf ( s.i0 ), B - T );
 				ctx.globalAlpha = 1;
-				ctx.fillStyle = chgFlags[ j ] ? P.tgt : P.ac; ctx.font = '11px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+				ctx.fillStyle = chgFlags[ j ] ? P.tgt : P.ac; ctx.font = '10px system-ui,sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
 				ctx.fillText ( String ( j + 1 ), ( xOf ( s.i0 ) + xOf ( s.i1 ) ) / 2, T + 2 );
 			});
 			ctx.font = '12px system-ui,sans-serif';
@@ -1191,7 +1740,7 @@
 			}
 			line ( track.f0, P.line, 2.5 );
 			if (tg && tg.changed) line ( tg.f0, P.tgt, 3 );
-			/* [新增] 浮動工具開著時，畫出「在此切開」實際會切的位置 */
+			/* [新增] 浮動工具開著時，畫出「切開」實際會切的位置 */
 			if (chipT >= 0) {
 				var gi = splitPoint ( chipT );
 				if (gi >= 0) {
@@ -1200,7 +1749,7 @@
 					ctx.beginPath (); ctx.moveTo ( gx, T ); ctx.lineTo ( gx, B ); ctx.stroke (); ctx.restore ();
 				}
 			}
-			ctx.fillStyle = P.tgt; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText ( 'Hz', 6, T );
+			ctx.font = '9px system-ui,sans-serif'; ctx.globalAlpha = 0.7; ctx.fillStyle = P.txt; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText ( 'Hz', 4, T ); ctx.globalAlpha = 1;
 		}
 		/* 空狀態：圖上用文字說明下一步（過長的字串逐字折行） */
 		function wrapLines ( txt, maxW ) {
@@ -1227,11 +1776,11 @@
 			[].forEach.call ( el.rows.querySelectorAll ( 'select[data-r=to]' ), function ( s ) { if (TS.isShort ( s.value )) short = true; } );
 			/* 「依對應」的列，目標來自頁籤二 */
 			[].forEach.call ( el.mapbar.querySelectorAll ( 'select[data-m]' ), function ( s ) { if (s.value && TS.isShort ( s.value )) short = true; } );
-			var msg = short ? tf ( 'tc.warn_short', '⚠ 目標含入聲（短調）：只改音高，音長與塞音韻尾不變，聽起來可能不自然。', '⚠ A target is a short (entering) tone: only pitch changes; duration and the stop ending stay, so it may sound unnatural.' ) : '';
+			var msg = short ? tf ( 'tc.warn_short', '⚠ 目標含入聲：音長不變，可能不自然。', '⚠ Short-tone target: duration is unchanged.' ) : '';
 			/* [階段 4] 一個字平均降（或升）接近一個八度時，重合成後的音高可能被聽成原來的高度（八度混淆）：提醒並建議縮小「音高幅度」 */
 			var big = 0;
 			try { readPlan ().forEach ( function ( p ) { if (p.to) { var a = chaoOf ( p.from ), b = chaoOf ( p.to ); if (a && b) big = Math.max ( big, Math.abs ( chaoMean ( b ) - chaoMean ( a ) ) * range * 3 ); } } ); } catch (e) {}
-			if (big >= 10) msg += ( msg ? ' ' : '' ) + tf ( 'tc.warn_big', '⚠ 有字的平均音高要改變約 ' + Math.round ( big ) + ' 半音（接近一個八度）：合成後可能聽成原本的高度，請試聽，必要時把「音高幅度」調小。', '⚠ A syllable shifts by about ' + Math.round ( big ) + ' semitones (close to an octave): the result may be heard at the original height. Listen, and reduce Pitch range if needed.' );
+			if (big >= 10) msg += ( msg ? ' ' : '' ) + tf ( 'tc.warn_big', '⚠ 有字音高改變約 ' + Math.round ( big ) + ' 半音，可能聽成原高度：請試聽，或調小「音高幅度」。', '⚠ A syllable shifts ~' + Math.round ( big ) + ' semitones; it may sound at the original height. Listen, or reduce Pitch range.' );
 			el.warn.textContent = msg;
 			refreshInfo ();
 		}
@@ -1281,15 +1830,17 @@
 			if (!track || !syls[ k ]) return ;
 			selectRow ( k );
 			var rg = sylRange ( k ), tok = ++sylTok;
-			if (orig) return playBuf ( toBuffer ( chans, rg[ 0 ], rg[ 1 ] ) );
+			var pb = el.rows.querySelector ( 'button[data-r="' + ( orig ? 'po' : 'pc' ) + '"][data-i="' + k + '"]' );
+			if (orig) { pend ( pb ); return playBuf ( toBuffer ( chans, rg[ 0 ], rg[ 1 ] ) ); }
 			if (busy) return status ( tf ( 'tc.busy', '處理中，請稍候', 'Busy, please wait' ) );
+			pend ( pb );
 			var t0 = Date.now ();
 			sylConverted ( k ).then ( function ( outs ) {
 				if (closed || tok !== sylTok) return ;
 				if (!outs) { status ( '' ); return playBuf ( toBuffer ( chans, rg[ 0 ], rg[ 1 ] ) ); }
 				status ( tf ( 'tc.took', '耗時', 'Took' ) + ' ' + fmtMs ( Date.now () - t0 ) );
 				playBuf ( toBuffer ( outs, 0, outs[ 0 ].length ) );
-			}, function ( e ) { if (!closed && tok === sylTok) status ( String ( e && e.message || e ) ); } );
+			}, function ( e ) { if (!closed && tok === sylTok) { stopPlay (); status ( String ( e && e.message || e ) ); } } );
 		}
 		function toBuffer ( arrs, a, b ) {
 			a = a || 0; b = b == null ? arrs[ 0 ].length : b;
@@ -1298,10 +1849,11 @@
 			return nb;
 		}
 		function playBuf ( b ) {
-			stopPlay ();
+			stopSrc ();
 			var ac = ws.backend.ac;
 			try { ac.state === 'suspended' && ac.resume (); } catch (e) {}
-			playSrc = ac.createBufferSource (); playSrc.buffer = b; playSrc.connect ( ac.destination ); playSrc.start ();
+			var ps = playSrc = ac.createBufferSource (); ps.buffer = b; ps.connect ( ac.destination ); ps.start ();
+			ps.onended = function () { if (playSrc === ps) stopPlay (); };
 		}
 		function sylRange ( k ) {
 			var pad = 0.03, a = Math.max ( 0, Math.round ( ( syls[ k ].a - pad ) * sr ) ), b = Math.min ( n, Math.round ( ( syls[ k ].b + pad ) * sr ) );
@@ -1322,7 +1874,7 @@
 			var s = rg ? rg.start : 0, du = rg ? rg.end - rg.start : ( b ? b.duration : 0 );
 			return Math.abs ( s - src.start ) > 0.002 || Math.abs ( du - src.dur ) > 0.002;
 		}
-		function showDur () { el.dur.textContent = src ? src.dur.toFixed ( 2 ) + ' s' : ''; }
+		function showDur () { el.dur.textContent = ''; }        /* 標題後不顯示秒數 */
 		/* 標題旁的重讀鈕：還沒讀過、音訊過期、選取範圍改了 → 變主色提醒 */
 		function syncReload () {
 			var hot = !src || stale || selDiffers ();
@@ -1359,19 +1911,38 @@
 			updateCounts (); updateNote (); draw ();
 			analyse ();
 		}
-		/* 空狀態且停靠中：主畫面選好範圍、穩定一個計時週期（0.5 秒）就自動讀取 */
+		/* [修改] 停靠中自動讀取：
+		 *   ① 空狀態，或使用者重新選了一個和快照不同的範圍（要有選取區；穩定一個計時週期後才讀，避免拖曳途中亂讀）；
+		 *   ② 新載入「覆蓋」音檔後（autoLoad）：立即讀取，範圍超過 20 秒就維持手動。
+		 *   「附加在後」不會設 autoLoad，所以仍需手動按「重新讀取」。
+		 *   音訊過期（stale）時，只要使用者有重新拉出選取區也會讀（整份沒選取區的情況不自動讀，附加後就是這種）。 */
+		function tryAutoLoad () {
+			if (!autoLoad || closed) return ;
+			if (applied === 'f') { autoLoad = false; return ; }
+			if (busy) return ;                       /* 正在運算／試聽：等下一次輪詢再試 */
+			autoLoad = false;
+			if (!readSelection ( app ).err) reload ();
+		}
 		function pollSel () {
-			if (closed || src || busy || applied === 'f') return ;
+			if (closed || selfEdit || applied === 'f') return ;
+			if (autoLoad) { tryAutoLoad (); return ; }
+			if (busy) return ;
 			var rd = readSelection ( app ), key = '';
-			if (!rd.err && hasRegion ( rd.ws )) key = rd.selStart.toFixed ( 3 ) + ':' + rd.selDur.toFixed ( 3 );
+			if (!rd.err && hasRegion ( rd.ws ) && ( !src || selDiffers () )) key = rd.selStart.toFixed ( 3 ) + ':' + rd.selDur.toFixed ( 3 );
 			if (key && key === pendSel) { pendSel = ''; reload (); }
 			else pendSel = key;
+		}
+		/* [新增] 新音檔載入完成（DidLoadFile）：覆蓋載入 → 自動讀取；附加在後 → 不動 */
+		function onLoaded ( isAppend ) {
+			if (closed || isAppend) return ;
+			autoLoad = true;
+			w.setTimeout ( tryAutoLoad, 150 );      /* 等引擎把聲道、區間設定完再讀 */
 		}
 		function reload () {
 			if (closed || busy) return ;
 			var rd = readSelection ( app );
 			if (rd.err) { status ( rd.err ); if (!src) { emptyMsg = rd.err; draw (); } return ; }
-			ws = rd.ws; AU = rd.AU;
+			ws = rd.ws; AU = rd.AU; autoLoad = false; pendSel = '';
 			try { app.fireEvent ( 'RequestPause' ); } catch (e) {}
 			loadSrc ( snapshot ( app, rd ) );
 		}
@@ -1533,6 +2104,7 @@
 			pk.classList.toggle ( 'pk_tc_nw', wd < 580 );
 			if (( wd < 580 ) !== nar) { nar = wd < 580; applyNar (); }        /* [新增] 窄／寬切換時改選項文字 */
 			pk.classList.toggle ( 'pk_tc_xs', wd < 420 );
+			fitSel ( el.lang ); fitSel ( el.reg );
 			soonDraw ();
 		}
 		if (w.ResizeObserver) { ro = new w.ResizeObserver ( sized ); ro.observe ( pk ); }
@@ -1560,10 +2132,8 @@
 			/* 停靠時，焦點不在面板內的按鍵一律交給主畫面（空白鍵＝播放、方向鍵…） */
 			if (applied !== 'f' && !inside ( e )) return ;
 			if (e.key === 'Escape' && el.pop.style.display === 'flex') { e.preventDefault (); e.stopPropagation (); popShow ( false ); return ; }
+			if (e.key === 'Escape' && el.mappop.style.display === 'block') { e.preventDefault (); e.stopPropagation (); mapShow ( false ); return ; }
 			if (e.key === 'Escape' && ( chipT >= 0 || el.advp.style.display === 'block' )) { e.preventDefault (); e.stopPropagation (); hideChip (); advShow ( false ); return ; }        /* [新增] Esc 先收起浮動工具／音高設定 */
-			if (e.target && e.target.getAttribute && e.target.getAttribute ( 'role' ) === 'tab' && ( e.key === 'ArrowLeft' || e.key === 'ArrowRight' )) {
-				e.preventDefault (); e.stopPropagation (); setTab ( tab === 'rows' ? 'map' : 'rows', true ); remember (); return ;
-			}
 			if (e.target && /^(INPUT|SELECT)$/.test ( e.target.tagName ) && e.key !== 'Escape' && !( e.key === 'Enter' && ( e.ctrlKey || e.metaKey ) )) { e.stopPropagation (); return ; }
 			if (e.key === 'Escape') { e.preventDefault (); close (); }
 			else if (e.key === ' ' && !( e.target && e.target.tagName === 'BUTTON' ) && el.pop.style.display !== 'flex') { e.preventDefault (); el.prev.click (); }
@@ -1575,7 +2145,93 @@
 		/* 浮動時點遮罩外面＝關閉；停靠時沒有遮罩，點外面不會關 */
 		back.addEventListener ( 'mousedown', function ( e ) { if (e.target === back && applied === 'f') close (); } );
 
-		function remember () { savePrefs ({ lang: langId, acc: accId, range: range, anchor: anchor, reg: regMode, manhz: manHz, saved: savedReg, tab: tab }); }
+
+		/* ---------- [學習] 記住人工標註 ---------- */
+		function learnRow ( k ) {
+			var fs = rowSel ( 'from', k ), s = syls[ k ];
+			if (!fs || !s || !scaleNow || fs.value === 'custom') return false;
+			var ok = Learn.add ( langId, accId, fs.value, contourPts ( sylHz[ k ] ), scaleNow, s.b - s.a, sylHz[ k ] );
+			if (ok && plan[ k ]) plan[ k ].remembered = true;
+			return ok;
+		}
+		function lrnToneName ( id ) { var t = TS.find ( id ); return t ? toneLabel ( t ) : id; }
+		function syncLearn () {
+			var n = Learn.count ( langId, accId );
+			el.lrn.textContent = '★ ' + n;
+			el.lrn.title = tf ( 'tc.lrn_tip', '已記住的人工標註（這個腔調）：', 'Remembered labels (this accent): ' ) + n;
+			el.lrn.className = 'pk_tc_b' + ( n ? ' on' : '' );
+			renderLearn ();
+		}
+		function renderLearn () {
+			var by = Learn.byTone ( langId, accId ), n = Learn.count ( langId, accId ), h = '';
+			h += '<div><b>' + esc ( tf ( 'tc.lrn_title', '學習（記住你標過的聲調）', 'Learning (remember your labels)' ) ) + '</b></div>';
+			h += '<div>' + esc ( tf ( 'tc.lrn_info', '這個腔調已記住', 'Remembered for this accent:' ) ) + ' ' + n + ' ' + esc ( tf ( 'tc.chars', '字', 'syllables' ) ) +
+				'（' + esc ( tf ( 'tc.lrn_all', '全部', 'all' ) ) + ' ' + Learn.total () + '）</div>';
+			h += '<div>' + esc ( tf ( 'tc.lrn_tpl', '可當範本（有細緻曲線）', 'Usable as templates' ) ) + ' ' + Learn.tplCount ( langId, accId ) + ' / ' + n + '</div>';
+			var tl = Object.keys ( by );
+			if (tl.length) h += '<div>' + tl.map ( function ( id ) {
+				return esc ( lrnToneName ( id ) ) + ' ' + by[ id ] + ' <button type="button" class="pk_tc_p" data-l="rmt" data-t="' + esc ( id ) + '" title="' + esc ( tf ( 'tc.lrn_rmt', '刪除這個聲調的全部樣本', 'Delete all samples of this tone' ) ) + '">&#10005;</button>';
+			}).join ( ' ・ ' ) + '</div>';
+			h += '<div><label><input type="checkbox" data-l="on"' + ( Learn.enabled () ? ' checked' : '' ) + '> ' + esc ( tf ( 'tc.lrn_on', '辨識時參考已記住的字', 'Use remembered labels when detecting' ) ) + '</label></div>';
+			h += '<div class="pk_tc_bar">' +
+				'<button type="button" class="pk_tc_b" data-l="all">' + esc ( tf ( 'tc.lrn_saveall', '記住目前全部（確認都正確）', 'Remember all current rows' ) ) + '</button>' +
+				'<button type="button" class="pk_tc_b" data-l="undo">' + esc ( tf ( 'tc.lrn_undo', '刪除最近一筆', 'Delete last' ) ) + '</button>' +
+				'<button type="button" class="pk_tc_b" data-l="exp">' + esc ( tf ( 'tc.lrn_exp', '匯出', 'Export' ) ) + '</button>' +
+				'<button type="button" class="pk_tc_b" data-l="imp">' + esc ( tf ( 'tc.lrn_imp', '匯入', 'Import' ) ) + '</button>' +
+				'<button type="button" class="pk_tc_b" data-l="clr">' + esc ( tf ( 'tc.lrn_clr', '清除此腔調', 'Clear this accent' ) ) + '</button>' +
+				'<button type="button" class="pk_tc_b" data-l="clrall">' + esc ( tf ( 'tc.lrn_clrall', '清除全部', 'Clear all' ) ) + '</button></div>';
+			el.lrnbox.innerHTML = h;
+		}
+		function afterLearn ( msg ) { syncLearn (); redetect (); if (msg) status ( msg ); }
+		function confirmRow ( k ) {
+			if (!plan[ k ]) return ;
+			plan[ k ].manual = true;
+			var ok = learnRow ( k ), cell = rowSel ( 'conf', k );
+			if (cell) { cell.innerHTML = confHtml ( plan[ k ] ); cell.parentNode.className = rowCls ( k ); }
+			updateCounts (); updateReg ();
+			afterLearn ( ok ? tf ( 'tc.lrn_done', '已記住', 'Remembered' ) : '' );
+		}
+		el.lrn.onclick = function () { renderLearn (); popShow ( true ); };
+		el.lrnbox.addEventListener ( 'click', function ( e ) {
+			var b = e.target && e.target.closest && e.target.closest ( '[data-l]' );
+			if (!b) return ;
+			var a = b.getAttribute ( 'data-l' );
+			if (a === 'on') { Learn.setEnabled ( b.checked ); afterLearn (); }
+			else if (a === 'all') {
+				var c = 0; plan.forEach ( function ( p, k ) { if (learnRow ( k )) ++c; } );
+				afterLearn ( tf ( 'tc.lrn_done', '已記住', 'Remembered' ) + ' ' + c );
+			}
+			else if (a === 'undo') { Learn.undoLast ( langId, accId ); afterLearn (); }
+			else if (a === 'rmt') { Learn.removeTone ( langId, accId, b.getAttribute ( 'data-t' ) ); afterLearn (); }
+			else if (a === 'clr') { if (w.confirm ( tf ( 'tc.lrn_cfm', '確定清除這個腔調已記住的字？', 'Clear remembered labels of this accent?' ) )) { Learn.clear ( langId, accId ); afterLearn (); } }
+			else if (a === 'clrall') { if (w.confirm ( tf ( 'tc.lrn_cfm2', '確定清除所有語言、腔調已記住的字？', 'Clear ALL remembered labels?' ) )) { Learn.clear (); afterLearn (); } }
+			else if (a === 'exp') {
+				try {
+					var blob = new w.Blob ([ Learn.exportJSON () ], { type: 'application/json' }), u = w.URL.createObjectURL ( blob ), an = d.createElement ( 'a' );
+					an.href = u; an.download = 'soundit-tone-learning.json'; d.body.appendChild ( an ); an.click ();
+					setTimeout ( function () { d.body.removeChild ( an ); w.URL.revokeObjectURL ( u ); }, 500 );
+				} catch (e2) {}
+			}
+			else if (a === 'imp') {
+				var inp = d.createElement ( 'input' );
+				inp.type = 'file'; inp.accept = '.json,application/json';
+				inp.onchange = function () {
+					var f = inp.files && inp.files[ 0 ]; if (!f) return ;
+					var rd = new w.FileReader ();
+					rd.onload = function () {
+						var n2 = Learn.importJSON ( String ( rd.result ) );
+						afterLearn ( n2 < 0 ? tf ( 'tc.lrn_bad', '檔案格式不對', 'Invalid file' ) : tf ( 'tc.lrn_imped', '已匯入', 'Imported' ) + ' ' + n2 );
+					};
+					rd.readAsText ( f );
+				};
+				inp.click ();
+			}
+		});
+		el.lrnbox.addEventListener ( 'change', function ( e ) {
+			var b = e.target; if (b && b.getAttribute && b.getAttribute ( 'data-l' ) === 'on') { Learn.setEnabled ( b.checked ); afterLearn (); }
+		});
+
+		function remember () { savePrefs ({ lang: langId, acc: accId, range: range, anchor: anchor, natural: natural, tsrc: tsrc, reg: regMode, manhz: manHz, saved: savedReg, extra: extraPrefs, kind: srcKind }); }
 
 		/* 使用者手動改了「原聲調」→ 該列標為手動（之後重新偵測不會蓋掉） */
 		function markManual ( e ) {
@@ -1584,10 +2240,17 @@
 			var k = +t.getAttribute ( 'data-i' );
 			if (plan[ k ]) { plan[ k ].manual = true; var cell = rowSel ( 'conf', k ); if (cell) { cell.innerHTML = confHtml ( plan[ k ] ); cell.parentNode.className = rowCls ( k ); } updateCounts (); updateReg (); }
 		}
-		el.rows.addEventListener ( 'change', function ( e ) { markManual ( e ); updateCounts (); draw (); } );
+		el.rows.addEventListener ( 'change', function ( e ) {
+			markManual ( e ); updateCounts (); draw ();
+			var t = e.target;
+			if (t && t.getAttribute && t.getAttribute ( 'data-r' ) === 'from' && t.value !== 'custom') {
+				var kk = +t.getAttribute ( 'data-i' );
+				if (learnRow ( kk )) { var cell = rowSel ( 'conf', kk ); if (cell) cell.innerHTML = confHtml ( plan[ kk ] ); afterLearn (); }
+			}
+		} );
 		el.rows.addEventListener ( 'input', function ( e ) { markManual ( e ); updateCounts (); draw (); } );
 		el.reg.onchange = function () {
-			regMode = el.reg.value; showRegWraps ();
+			regMode = el.reg.value; fitSel ( el.reg ); showRegWraps ();
 			if (regMode === 'manual' && scaleNow && !( prefs.manhz > 0 )) { manHz = Math.round ( hzOfDeg ( 3 ) ); el.manhz.value = manHz; }
 			remember (); redetect ();
 		};
@@ -1599,10 +2262,13 @@
 			var b = e.target && e.target.closest && e.target.closest ( 'button[data-r]' );
 			if (!b || !track) return ;
 			var kind = b.getAttribute ( 'data-r' ), k = +b.getAttribute ( 'data-i' );
+			if (kind === 'ok') { confirmRow ( k ); return ; }
+			if (kind === 'tpl') { cycleTpl ( k ); return ; }
 			if (kind === 'rst') {                                        /* ↺ 還原：這一列改回「依對應」 */
 				var ts = rowSel ( 'to', k ); if (ts) ts.value = '@';
 				updateCounts (); draw (); return ;
 			}
+			if (( kind === 'po' || kind === 'pc' ) && playBtn === b) return stopPlay ();        /* 播放中再按＝停止 */
 			playSyl ( k, kind === 'po' );
 		});
 		/* 點列也標示選取；點音高圖上的音節 = 試聽（Shift = 原音） */
@@ -1630,14 +2296,19 @@
 		el.mapbar.addEventListener ( 'change', function ( e ) {
 			if (e.target && e.target.getAttribute ( 'data-m' ) != null) { updateCounts (); draw (); }
 		});
+		/* [新增 v8] 額外聲調的 ✕ */
+		el.mapbar.addEventListener ( 'click', function ( e ) {
+			var b = e.target && e.target.closest ? e.target.closest ( '[data-xr]' ) : null;
+			if (b) { e.preventDefault (); removeExtra ( b.getAttribute ( 'data-xr' ) ); }
+		});
 		function retone () {
 			remember (); cache = null; cacheKey = ''; sylCache = {}; sylCacheN = 0; selK = -1;
-			fillAccents ();
+			fillAccents (); syncLearn ();
 			if (!track) { if (!src) { buildAll (); fillReg (); buildRows (); } draw (); return ; }
 			plan = []; detectAll (); buildAll (); fillReg (); buildRows (); draw ();
 		}
-		el.lang.onchange = function () { langId = el.lang.value; accId = TS.defaultAccent ( langId, uiLang ); retone (); };
-		el.acc.onchange = function () { accId = el.acc.value; retone (); };
+		el.kind.onchange = function () { srcKind = el.kind.value === 'citation' ? 'citation' : 'natural'; retone (); };
+		el.lang.onchange = function () { var v = el.lang.value.split ( '|' ); langId = v[ 0 ]; accId = v[ 1 ]; retone (); };
 		/* 「全部改成」：每一列都逐字指定成同一個（優先於對應規則；對應規則本身不動）。「全部依對應」＝清掉所有逐字指定 */
 		el.all.onchange = function () {
 			var v = el.all.value;
@@ -1648,10 +2319,18 @@
 		};
 		el.range.title = tf ( 'tc.range_tip', '連按兩下回到 1.00', 'Double-click to reset to 1.00' );
 		el.range.ondblclick = function () { el.range.value = 1; el.range.oninput (); };
+		el.natural.ondblclick = function () { el.natural.value = 0.7; el.natural.oninput (); };
+		el.natural.oninput = function () { natural = +el.natural.value; el.naturalv.textContent = natural.toFixed ( 2 ); syncAdv (); remember (); draw (); };
 		el.range.oninput = function () { range = +el.range.value; el.rangev.textContent = range.toFixed ( 2 ); syncAdv (); remember (); draw (); };
 		el.anchor.onchange = function () { anchor = el.anchor.value; syncAdv (); remember (); draw (); };
-		el.orig.onclick = function () { if (src) playBuf ( src.seg ); };
-		el.prev.onclick = function () { guard ( function () { return compute ().then ( function ( out ) { playBuf ( toBuffer ( out ) ); } ); } ); };
+		el.tsrc.onchange = function () { tsrc = el.tsrc.value; syncAdv (); remember (); updateAuto (); draw (); };
+		el.orig.onclick = function () { if (!src) return ; if (playBtn === el.orig) return stopPlay (); pend ( el.orig ); playBuf ( src.seg ); };
+		el.prev.onclick = function () {
+			if (playBtn === el.prev) return stopPlay ();
+			if (busy || !track) return ;
+			pend ( el.prev );
+			guard ( function () { return compute ().then ( function ( out ) { playBuf ( toBuffer ( out ) ); }, function ( e ) { stopPlay (); throw e; } ); } );
+		};
 		el.reload.onclick = reload;
 		el.apply.onclick = function () {
 			if (isStale ()) { stale = true; syncBtns (); updateNote (); return ; }
@@ -1687,6 +2366,8 @@
 		/* 啟動 */
 		applyMode ();
 		sized ();
+		syncLearn ();
+		syncMapBtn ( 0 );
 		tmr = w.setInterval ( function () { relayout (); pollSel (); }, 500 );      /* 工具列高度、標記清單狀態變動時跟著調整（與標記清單相同做法） */
 		updateNote ();
 		if (src) analyse ();
@@ -1695,7 +2376,8 @@
 		return {
 			close: close, reload: reload, setMode: setMode, side: function () { return applied; },
 			relayout: relayout, checkStale: checkStale, checkSel: checkSel, stopPlay: stopPlay,
-			reselect: function () { if (applied !== 'f') reload (); }
+			reselect: function () { if (applied !== 'f') reload (); },
+			onLoaded: onLoaded
 		};
 	}
 
@@ -1704,8 +2386,7 @@
 		/* 停靠：dock('l'|'r'|'f')；side() 回傳目前實際所在的位置 */
 		dock: function ( m ) { if (cur) cur.setMode ( m ); else if (m === 'l' || m === 'r' || m === 'f') { dMode = m; try { w.localStorage.setItem ( DK_KEY, m ); } catch (e) {} } },
 		side: function () { return cur ? cur.side () : dMode; },
-		_core: { detectTone: detectTone, detectByShape: detectByShape, detectScored: detectScored, detectTones: detectTones, scoreTones: scoreTones, contourPts: contourPts, refineScale: refineScale, fixedScale: fixedScale, presetScale: presetScale, calibrate: calibrate, PRESETS: PRESETS, pitchScale: pitchScale, buildTarget: buildTarget, parseChao: parseChao, chaoOf: chaoOf, sameTone: sameTone, rotateMap: rotateMap,
+		_core: { learn: Learn, detectTone: detectTone, detectByShape: detectByShape, detectScored: detectScored, detectTones: detectTones, scoreTones: scoreTones, contourPts: contourPts, refineScale: refineScale, fixedScale: fixedScale, presetScale: presetScale, calibrate: calibrate, PRESETS: PRESETS, pitchScale: pitchScale, buildTarget: buildTarget, frameDb: frameDb, rescueRegions: rescueRegions, mergeRescue: mergeRescue, bridgeGaps: bridgeGaps, parseChao: parseChao, chaoOf: chaoOf, sameTone: sameTone,
 			changedRange: changedRange, hashF0: hashF0, spanOf: spanOf, directRun: directRun, workerRun: workerRun, smartRun: smartRun, renderSpan: renderSpan, spliceSpan: spliceSpan, countByTone: countByTone, CTX_SEC: CTX_SEC, SYL_PAD: SYL_PAD }
 	};
 })( window, document );
-
